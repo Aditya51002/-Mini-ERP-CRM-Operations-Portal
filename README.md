@@ -338,11 +338,13 @@ Main API routes:
 | `GET` | `/customers/:id` | Customer detail with notes and challan history |
 | `POST` | `/customers` | Create customer, Admin/Sales |
 | `PUT` | `/customers/:id` | Update customer, Admin/Sales |
+| `DELETE` | `/customers/:id` | Delete customer, Admin/Sales |
 | `POST` | `/customers/:id/notes` | Add customer note, Admin/Sales |
 | `GET` | `/products` | Paginated product list with `lowStock` |
 | `GET` | `/products/:id` | Product detail with recent stock movements |
 | `POST` | `/products` | Create product, Admin/Warehouse |
 | `PUT` | `/products/:id` | Update product, Admin/Warehouse |
+| `DELETE` | `/products/:id` | Delete product, Admin/Warehouse |
 | `POST` | `/products/:id/stock` | Manual stock movement, Admin/Warehouse |
 | `GET` | `/products/:id/movements` | Paginated stock movement log |
 | `GET` | `/challans` | Paginated challan list |

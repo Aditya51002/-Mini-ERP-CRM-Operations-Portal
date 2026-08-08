@@ -295,6 +295,27 @@ router.put(
   })
 );
 
+router.delete(
+  "/:id",
+  requireRole(...writeRoles),
+  asyncHandler(async (req, res) => {
+    const id = parseCustomerId(req.params.id);
+
+    const existing = await prisma.customer.findUnique({
+      where: { id },
+      select: { id: true }
+    });
+
+    if (!existing) {
+      throw new AppError("Customer not found", 404);
+    }
+
+    await prisma.customer.delete({ where: { id } });
+
+    res.status(204).send();
+  })
+);
+
 router.post(
   "/:id/notes",
   requireRole(...writeRoles),

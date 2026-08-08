@@ -58,7 +58,17 @@
       "type": "string"
     },
     {
+      "key": "deleteCustomerId",
+      "value": "",
+      "type": "string"
+    },
+    {
       "key": "productId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "deleteProductId",
       "value": "",
       "type": "string"
     },
@@ -284,6 +294,78 @@
                 "customers",
                 "{{customerId}}",
                 "notes"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Customer For Delete",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('deletable customer created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('deleteCustomerId', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Delete Customer {{$timestamp}}\",\n  \"mobile\": \"7777777777\",\n  \"customerType\": \"RETAIL\",\n  \"status\": \"LEAD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('customer deleted', function () {",
+                  "  pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{deleteCustomerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "{{deleteCustomerId}}"
               ]
             }
           },
@@ -532,6 +614,78 @@
                   "key": "pageSize",
                   "value": "20"
                 }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Product For Delete",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('deletable product created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('deleteProductId', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Delete Product {{$timestamp}}\",\n  \"sku\": \"PM-DEL-{{$timestamp}}\",\n  \"category\": \"Postman\",\n  \"unitPrice\": 10.00,\n  \"currentStock\": 0,\n  \"minStockAlert\": 0,\n  \"location\": \"Delete Test\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('product deleted', function () {",
+                  "  pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{deleteProductId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{deleteProductId}}"
               ]
             }
           },

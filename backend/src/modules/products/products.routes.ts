@@ -257,6 +257,27 @@ router.put(
   })
 );
 
+router.delete(
+  "/:id",
+  requireRole(...writeRoles),
+  asyncHandler(async (req, res) => {
+    const id = parseProductId(req.params.id);
+
+    const existing = await prisma.product.findUnique({
+      where: { id },
+      select: { id: true }
+    });
+
+    if (!existing) {
+      throw new AppError("Product not found", 404);
+    }
+
+    await prisma.product.delete({ where: { id } });
+
+    res.status(204).send();
+  })
+);
+
 router.post(
   "/:id/stock",
   requireRole(...writeRoles),
