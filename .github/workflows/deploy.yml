@@ -64,6 +64,10 @@ jobs:
         working-directory: backend
         run: npm run prisma:generate
 
+      - name: Type-check backend
+        working-directory: backend
+        run: npm run typecheck
+
       - name: Run backend lint if present
         working-directory: backend
         shell: bash

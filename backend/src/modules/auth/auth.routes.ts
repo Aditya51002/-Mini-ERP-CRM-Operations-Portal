@@ -1,11 +1,12 @@
-const bcrypt = require("bcryptjs");
-const express = require("express");
-const jwt = require("jsonwebtoken");
-const { z } = require("zod");
+import type { User } from "@prisma/client";
+import bcrypt from "bcryptjs";
+import express from "express";
+import jwt, { type SignOptions } from "jsonwebtoken";
+import { z } from "zod";
 
-const prisma = require("../../config/db");
-const { asyncHandler } = require("../../middleware/errorHandler");
-const AppError = require("../../utils/AppError");
+import prisma from "../../config/db";
+import { asyncHandler } from "../../middleware/errorHandler";
+import AppError from "../../utils/AppError";
 
 const router = express.Router();
 
@@ -14,10 +15,16 @@ const loginSchema = z.object({
   password: z.string().min(1)
 });
 
-function signAuthToken(user) {
+type AuthUser = Pick<User, "id" | "role" | "email">;
+
+function signAuthToken(user: AuthUser): string {
   if (!process.env.JWT_SECRET) {
     throw new AppError("JWT_SECRET is not configured", 500);
   }
+
+  const options: SignOptions = {
+    expiresIn: (process.env.JWT_EXPIRES_IN || "8h") as SignOptions["expiresIn"]
+  };
 
   return jwt.sign(
     {
@@ -26,9 +33,7 @@ function signAuthToken(user) {
       email: user.email
     },
     process.env.JWT_SECRET,
-    {
-      expiresIn: process.env.JWT_EXPIRES_IN || "8h"
-    }
+    options
   );
 }
 
@@ -66,4 +71,4 @@ router.post(
   })
 );
 
-module.exports = router;
+export default router;

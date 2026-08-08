@@ -1,12 +1,17 @@
-require("dotenv").config();
+import "dotenv/config";
 
-const bcrypt = require("bcryptjs");
+import type { Role } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
-const prisma = require("../config/db");
+import prisma from "../config/db";
 
 const password = "Password123!";
 
-const users = [
+const users: Array<{
+  name: string;
+  email: string;
+  role: Role;
+}> = [
   {
     name: "Admin User",
     email: "admin@erp.test",
@@ -29,7 +34,7 @@ const users = [
   }
 ];
 
-async function main() {
+async function main(): Promise<void> {
   const passwordHash = await bcrypt.hash(password, 12);
 
   await prisma.stockMovement.deleteMany();

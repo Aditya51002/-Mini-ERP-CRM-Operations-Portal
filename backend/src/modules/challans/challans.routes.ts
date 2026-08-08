@@ -1,16 +1,78 @@
-const { Prisma } = require("@prisma/client");
-const express = require("express");
-const { z } = require("zod");
+import { Prisma, type ChallanItem, type Product, type Role, type SalesChallanStatus } from "@prisma/client";
+import type { Request } from "express";
+import express from "express";
+import { z } from "zod";
 
-const prisma = require("../../config/db");
-const { requireAuth, requireRole } = require("../../middleware/auth");
-const { asyncHandler } = require("../../middleware/errorHandler");
-const AppError = require("../../utils/AppError");
+import prisma from "../../config/db";
+import { requireAuth, requireRole } from "../../middleware/auth";
+import { asyncHandler } from "../../middleware/errorHandler";
+import AppError from "../../utils/AppError";
 
 const router = express.Router();
 
-const writeRoles = ["ADMIN", "SALES"];
-const challanStatuses = ["DRAFT", "CONFIRMED", "CANCELLED"];
+const writeRoles: Role[] = ["ADMIN", "SALES"];
+const challanStatuses = ["DRAFT", "CONFIRMED", "CANCELLED"] as const;
+
+const challanCustomerSelect = {
+  id: true,
+  name: true,
+  mobile: true,
+  businessName: true
+} satisfies Prisma.CustomerSelect;
+
+const challanCreatedBySelect = {
+  id: true,
+  name: true,
+  email: true,
+  role: true
+} satisfies Prisma.UserSelect;
+
+const challanListInclude = {
+  customer: {
+    select: challanCustomerSelect
+  },
+  createdBy: {
+    select: challanCreatedBySelect
+  }
+} satisfies Prisma.SalesChallanInclude;
+
+const challanDetailInclude = {
+  ...challanListInclude,
+  items: {
+    orderBy: { id: "asc" }
+  }
+} satisfies Prisma.SalesChallanInclude;
+
+type ChallanList = Prisma.SalesChallanGetPayload<{
+  include: typeof challanListInclude;
+}>;
+
+type ChallanDetail = Prisma.SalesChallanGetPayload<{
+  include: typeof challanDetailInclude;
+}>;
+
+interface RequestedDemand {
+  productId: number;
+  productNameSnapshot: string;
+  skuSnapshot: string;
+  requestedQuantity: number;
+}
+
+interface LockedProduct {
+  id: number;
+  name: string;
+  sku: string;
+  unitPrice: Prisma.Decimal;
+  currentStock: number;
+}
+
+interface InsufficientProduct {
+  productId: number;
+  productName: string;
+  sku: string;
+  availableQuantity: number;
+  requestedQuantity: number;
+}
 
 const itemSchema = z.object({
   productId: z.coerce.number().int().positive(),
@@ -26,9 +88,12 @@ const updateChallanSchema = z.object({
   items: z.array(itemSchema).min(1)
 });
 
+type ChallanInputItem = z.infer<typeof itemSchema>;
+type CreateChallanInput = z.infer<typeof createChallanSchema>;
+
 router.use(requireAuth);
 
-function parseChallanId(value) {
+function parseChallanId(value: string): number {
   const id = Number(value);
 
   if (!Number.isInteger(id) || id <= 0) {
@@ -38,9 +103,13 @@ function parseChallanId(value) {
   return id;
 }
 
-function parsePagination(query) {
-  const page = Math.max(Number.parseInt(query.page, 10) || 1, 1);
-  const requestedPageSize = Number.parseInt(query.pageSize, 10) || 20;
+function parsePagination(query: Request["query"]): {
+  page: number;
+  pageSize: number;
+  skip: number;
+} {
+  const page = Math.max(Number.parseInt(String(query.page), 10) || 1, 1);
+  const requestedPageSize = Number.parseInt(String(query.pageSize), 10) || 20;
   const pageSize = Math.min(Math.max(requestedPageSize, 1), 100);
 
   return {
@@ -50,15 +119,15 @@ function parsePagination(query) {
   };
 }
 
-function buildChallanWhere(query) {
-  const where = {};
+function buildChallanWhere(query: Request["query"]): Prisma.SalesChallanWhereInput {
+  const where: Prisma.SalesChallanWhereInput = {};
   const status = typeof query.status === "string" ? query.status.trim().toUpperCase() : "";
 
   if (status) {
-    if (!challanStatuses.includes(status)) {
+    if (!challanStatuses.includes(status as SalesChallanStatus)) {
       throw new AppError("Invalid challan status", 400);
     }
-    where.status = status;
+    where.status = status as SalesChallanStatus;
   }
 
   if (query.customerId !== undefined) {
@@ -72,7 +141,7 @@ function buildChallanWhere(query) {
   return where;
 }
 
-function toNumber(value) {
+function toNumber(value: Prisma.Decimal | number | null | undefined): number | null | undefined {
   if (value === null || value === undefined) {
     return value;
   }
@@ -80,7 +149,7 @@ function toNumber(value) {
   return Number(value);
 }
 
-function challanItemDto(item) {
+function challanItemDto(item: ChallanItem) {
   return {
     id: item.id,
     challanId: item.challanId,
@@ -92,7 +161,7 @@ function challanItemDto(item) {
   };
 }
 
-function challanDto(challan) {
+function challanDto(challan: ChallanDetail | ChallanList) {
   return {
     id: challan.id,
     challanNumber: challan.challanNumber,
@@ -118,18 +187,18 @@ function challanDto(challan) {
           role: challan.createdBy.role
         }
       : undefined,
-    items: challan.items ? challan.items.map(challanItemDto) : undefined
+    items: "items" in challan ? challan.items.map(challanItemDto) : undefined
   };
 }
 
-function listChallanDto(challan) {
+function listChallanDto(challan: ChallanList) {
   const dto = challanDto(challan);
   delete dto.items;
   return dto;
 }
 
-function aggregateRequestedItems(items) {
-  const demand = new Map();
+function aggregateRequestedItems(items: ChallanItem[]): Map<number, RequestedDemand> {
+  const demand = new Map<number, RequestedDemand>();
 
   for (const item of items) {
     const existing = demand.get(item.productId) || {
@@ -146,7 +215,10 @@ function aggregateRequestedItems(items) {
   return demand;
 }
 
-async function lockProductsForUpdate(tx, productIds) {
+async function lockProductsForUpdate(
+  tx: Prisma.TransactionClient,
+  productIds: number[]
+): Promise<LockedProduct[]> {
   if (productIds.length === 0) {
     return [];
   }
@@ -154,7 +226,7 @@ async function lockProductsForUpdate(tx, productIds) {
   // Prisma's model API has no SELECT ... FOR UPDATE. This raw MySQL row lock
   // prevents concurrent challan confirms from both reading the same stock and
   // driving inventory negative before either transaction commits.
-  return tx.$queryRaw`
+  return tx.$queryRaw<LockedProduct[]>`
     SELECT id, name, sku, unitPrice, currentStock
     FROM Product
     WHERE id IN (${Prisma.join(productIds)})
@@ -162,7 +234,7 @@ async function lockProductsForUpdate(tx, productIds) {
   `;
 }
 
-async function nextChallanNumber(tx) {
+async function nextChallanNumber(tx: Prisma.TransactionClient): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = `CH-${year}-`;
   const latest = await tx.salesChallan.findFirst({
@@ -183,7 +255,10 @@ async function nextChallanNumber(tx) {
   return `${prefix}${String(lastNumber + 1).padStart(4, "0")}`;
 }
 
-async function snapshotItems(tx, items) {
+async function snapshotItems(
+  tx: Prisma.TransactionClient,
+  items: ChallanInputItem[]
+): Promise<Prisma.ChallanItemUncheckedCreateWithoutChallanInput[]> {
   const productIds = [...new Set(items.map((item) => item.productId))];
   const products = await tx.product.findMany({
     where: {
@@ -192,7 +267,7 @@ async function snapshotItems(tx, items) {
       }
     }
   });
-  const productById = new Map(products.map((product) => [product.id, product]));
+  const productById = new Map<number, Product>(products.map((product) => [product.id, product]));
   const missingProductIds = productIds.filter((productId) => !productById.has(productId));
 
   if (missingProductIds.length > 0) {
@@ -204,6 +279,12 @@ async function snapshotItems(tx, items) {
   return items.map((item) => {
     const product = productById.get(item.productId);
 
+    if (!product) {
+      throw new AppError("One or more products were not found", 404, {
+        productIds: [item.productId]
+      });
+    }
+
     return {
       productId: product.id,
       productNameSnapshot: product.name,
@@ -214,30 +295,10 @@ async function snapshotItems(tx, items) {
   });
 }
 
-async function findChallanDetailOrThrow(id) {
+async function findChallanDetailOrThrow(id: number): Promise<ChallanDetail> {
   const challan = await prisma.salesChallan.findUnique({
     where: { id },
-    include: {
-      customer: {
-        select: {
-          id: true,
-          name: true,
-          mobile: true,
-          businessName: true
-        }
-      },
-      createdBy: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true
-        }
-      },
-      items: {
-        orderBy: { id: "asc" }
-      }
-    }
+    include: challanDetailInclude
   });
 
   if (!challan) {
@@ -247,7 +308,23 @@ async function findChallanDetailOrThrow(id) {
   return challan;
 }
 
-async function createDraftChallan(data, userId) {
+async function findChallanDetailInTransactionOrThrow(
+  tx: Prisma.TransactionClient,
+  id: number
+): Promise<ChallanDetail> {
+  const challan = await tx.salesChallan.findUnique({
+    where: { id },
+    include: challanDetailInclude
+  });
+
+  if (!challan) {
+    throw new AppError("Challan not found", 404);
+  }
+
+  return challan;
+}
+
+async function createDraftChallan(data: CreateChallanInput, userId: number): Promise<ChallanDetail> {
   return prisma.$transaction(async (tx) => {
     const customer = await tx.customer.findUnique({
       where: { id: data.customerId },
@@ -273,27 +350,7 @@ async function createDraftChallan(data, userId) {
           create: snapshotRows
         }
       },
-      include: {
-        customer: {
-          select: {
-            id: true,
-            name: true,
-            mobile: true,
-            businessName: true
-          }
-        },
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true
-          }
-        },
-        items: {
-          orderBy: { id: "asc" }
-        }
-      }
+      include: challanDetailInclude
     });
   });
 }
@@ -310,24 +367,7 @@ router.get(
         orderBy: { createdAt: "desc" },
         skip,
         take: pageSize,
-        include: {
-          customer: {
-            select: {
-              id: true,
-              name: true,
-              mobile: true,
-              businessName: true
-            }
-          },
-          createdBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: true
-            }
-          }
-        }
+        include: challanListInclude
       }),
       prisma.salesChallan.count({ where })
     ]);
@@ -357,7 +397,7 @@ router.post(
   requireRole(...writeRoles),
   asyncHandler(async (req, res) => {
     const data = createChallanSchema.parse(req.body);
-    const challan = await createDraftChallan(data, req.user.id);
+    const challan = await createDraftChallan(data, req.user!.id);
 
     res.status(201).json(challanDto(challan));
   })
@@ -404,30 +444,7 @@ router.put(
         }
       });
 
-      return tx.salesChallan.findUnique({
-        where: { id },
-        include: {
-          customer: {
-            select: {
-              id: true,
-              name: true,
-              mobile: true,
-              businessName: true
-            }
-          },
-          createdBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: true
-            }
-          },
-          items: {
-            orderBy: { id: "asc" }
-          }
-        }
-      });
+      return findChallanDetailInTransactionOrThrow(tx, id);
     });
 
     res.json(challanDto(challan));
@@ -481,7 +498,7 @@ router.post(
         ])
       );
 
-      const insufficientProducts = [];
+      const insufficientProducts: InsufficientProduct[] = [];
 
       for (const demandItem of demand.values()) {
         const lockedProduct = lockedProductById.get(demandItem.productId);
@@ -520,7 +537,7 @@ router.post(
             quantity: item.quantity,
             movementType: "OUT",
             reason: `Challan #${existing.challanNumber} confirmed`,
-            createdById: req.user.id
+            createdById: req.user!.id
           }
         });
       }
@@ -532,30 +549,7 @@ router.post(
         }
       });
 
-      return tx.salesChallan.findUnique({
-        where: { id },
-        include: {
-          customer: {
-            select: {
-              id: true,
-              name: true,
-              mobile: true,
-              businessName: true
-            }
-          },
-          createdBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: true
-            }
-          },
-          items: {
-            orderBy: { id: "asc" }
-          }
-        }
-      });
+      return findChallanDetailInTransactionOrThrow(tx, id);
     });
 
     res.json(challanDto(challan));
@@ -594,30 +588,7 @@ router.post(
           }
         });
 
-        return tx.salesChallan.findUnique({
-          where: { id },
-          include: {
-            customer: {
-              select: {
-                id: true,
-                name: true,
-                mobile: true,
-                businessName: true
-              }
-            },
-            createdBy: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                role: true
-              }
-            },
-            items: {
-              orderBy: { id: "asc" }
-            }
-          }
-        });
+        return findChallanDetailInTransactionOrThrow(tx, id);
       }
 
       const productIds = [...new Set(existing.items.map((item) => item.productId))];
@@ -639,7 +610,7 @@ router.post(
             quantity: item.quantity,
             movementType: "IN",
             reason: `Challan #${existing.challanNumber} cancelled`,
-            createdById: req.user.id
+            createdById: req.user!.id
           }
         });
       }
@@ -651,34 +622,11 @@ router.post(
         }
       });
 
-      return tx.salesChallan.findUnique({
-        where: { id },
-        include: {
-          customer: {
-            select: {
-              id: true,
-              name: true,
-              mobile: true,
-              businessName: true
-            }
-          },
-          createdBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: true
-            }
-          },
-          items: {
-            orderBy: { id: "asc" }
-          }
-        }
-      });
+      return findChallanDetailInTransactionOrThrow(tx, id);
     });
 
     res.json(challanDto(challan));
   })
 );
 
-module.exports = router;
+export default router;

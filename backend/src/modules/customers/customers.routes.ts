@@ -1,16 +1,46 @@
-const express = require("express");
-const { z } = require("zod");
+import type { Customer, CustomerStatus, Prisma, Role } from "@prisma/client";
+import type { Request } from "express";
+import express from "express";
+import { z } from "zod";
 
-const prisma = require("../../config/db");
-const { requireAuth, requireRole } = require("../../middleware/auth");
-const { asyncHandler } = require("../../middleware/errorHandler");
-const AppError = require("../../utils/AppError");
+import prisma from "../../config/db";
+import { requireAuth, requireRole } from "../../middleware/auth";
+import { asyncHandler } from "../../middleware/errorHandler";
+import AppError from "../../utils/AppError";
 
 const router = express.Router();
 
-const writeRoles = ["ADMIN", "SALES"];
-const customerTypes = ["RETAIL", "WHOLESALE", "DISTRIBUTOR"];
-const customerStatuses = ["LEAD", "ACTIVE", "INACTIVE"];
+const writeRoles: Role[] = ["ADMIN", "SALES"];
+const customerTypes = ["RETAIL", "WHOLESALE", "DISTRIBUTOR"] as const;
+const customerStatuses = ["LEAD", "ACTIVE", "INACTIVE"] as const;
+
+type CustomerDetail = Prisma.CustomerGetPayload<{
+  include: {
+    notes: {
+      include: {
+        createdBy: {
+          select: {
+            id: true;
+            name: true;
+            email: true;
+            role: true;
+          };
+        };
+      };
+    };
+    salesChallans: {
+      select: {
+        id: true;
+        challanNumber: true;
+        totalQuantity: true;
+        status: true;
+        createdById: true;
+        createdAt: true;
+        updatedAt: true;
+      };
+    };
+  };
+}>;
 
 const optionalTrimmedString = z
   .preprocess((value) => {
@@ -31,7 +61,7 @@ const optionalDate = z.preprocess((value) => {
   if (value === "" || value === null || value === undefined) {
     return undefined;
   }
-  return new Date(value);
+  return new Date(String(value));
 }, z.date().optional());
 
 const createCustomerSchema = z.object({
@@ -59,7 +89,7 @@ const noteSchema = z.object({
 
 router.use(requireAuth);
 
-function parseCustomerId(value) {
+function parseCustomerId(value: string): number {
   const id = Number(value);
 
   if (!Number.isInteger(id) || id <= 0) {
@@ -69,9 +99,13 @@ function parseCustomerId(value) {
   return id;
 }
 
-function parsePagination(query) {
-  const page = Math.max(Number.parseInt(query.page, 10) || 1, 1);
-  const requestedPageSize = Number.parseInt(query.pageSize, 10) || 20;
+function parsePagination(query: Request["query"]): {
+  page: number;
+  pageSize: number;
+  skip: number;
+} {
+  const page = Math.max(Number.parseInt(String(query.page), 10) || 1, 1);
+  const requestedPageSize = Number.parseInt(String(query.pageSize), 10) || 20;
   const pageSize = Math.min(Math.max(requestedPageSize, 1), 100);
 
   return {
@@ -81,8 +115,8 @@ function parsePagination(query) {
   };
 }
 
-function buildCustomerWhere(query) {
-  const where = {};
+function buildCustomerWhere(query: Request["query"]): Prisma.CustomerWhereInput {
+  const where: Prisma.CustomerWhereInput = {};
   const search = typeof query.search === "string" ? query.search.trim() : "";
   const status = typeof query.status === "string" ? query.status.trim().toUpperCase() : "";
 
@@ -95,17 +129,17 @@ function buildCustomerWhere(query) {
   }
 
   if (status) {
-    if (!customerStatuses.includes(status)) {
+    if (!customerStatuses.includes(status as CustomerStatus)) {
       throw new AppError("Invalid customer status", 400);
     }
 
-    where.status = status;
+    where.status = status as CustomerStatus;
   }
 
   return where;
 }
 
-function customerListDto(customer) {
+function customerListDto(customer: Customer) {
   return {
     id: customer.id,
     name: customer.name,
@@ -122,7 +156,7 @@ function customerListDto(customer) {
   };
 }
 
-function customerDetailDto(customer) {
+function customerDetailDto(customer: CustomerDetail) {
   return {
     ...customerListDto(customer),
     notes: customer.notes.map((note) => ({
@@ -150,7 +184,7 @@ function customerDetailDto(customer) {
   };
 }
 
-async function findCustomerDetailOrThrow(id) {
+async function findCustomerDetailOrThrow(id: number): Promise<CustomerDetail> {
   const customer = await prisma.customer.findUnique({
     where: { id },
     include: {
@@ -281,7 +315,7 @@ router.post(
       data: {
         customerId: id,
         note: data.note,
-        createdById: req.user.id
+        createdById: req.user!.id
       },
       include: {
         createdBy: {
@@ -311,4 +345,4 @@ router.post(
   })
 );
 
-module.exports = router;
+export default router;

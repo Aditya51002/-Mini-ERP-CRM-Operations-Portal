@@ -1,14 +1,34 @@
-const express = require("express");
-const { z } = require("zod");
+import type { Prisma, Product, Role, StockMovement } from "@prisma/client";
+import type { Request } from "express";
+import express from "express";
+import { z } from "zod";
 
-const prisma = require("../../config/db");
-const { requireAuth, requireRole } = require("../../middleware/auth");
-const { asyncHandler } = require("../../middleware/errorHandler");
-const AppError = require("../../utils/AppError");
+import prisma from "../../config/db";
+import { requireAuth, requireRole } from "../../middleware/auth";
+import { asyncHandler } from "../../middleware/errorHandler";
+import AppError from "../../utils/AppError";
 
 const router = express.Router();
 
-const writeRoles = ["ADMIN", "WAREHOUSE"];
+const writeRoles: Role[] = ["ADMIN", "WAREHOUSE"];
+
+type MovementWithCreatedBy = StockMovement & {
+  createdBy?: {
+    id: number;
+    name: string;
+    email: string;
+    role: Role;
+  };
+};
+
+type ProductDetail = Product & {
+  stockMovements: MovementWithCreatedBy[];
+};
+
+interface LockedProductStock {
+  id: number;
+  currentStock: number;
+}
 
 const optionalTrimmedString = z.preprocess((value) => {
   if (value === "" || value === null || value === undefined) {
@@ -45,7 +65,7 @@ const stockAdjustmentSchema = z.object({
 
 router.use(requireAuth);
 
-function parseProductId(value) {
+function parseProductId(value: string): number {
   const id = Number(value);
 
   if (!Number.isInteger(id) || id <= 0) {
@@ -55,9 +75,13 @@ function parseProductId(value) {
   return id;
 }
 
-function parsePagination(query) {
-  const page = Math.max(Number.parseInt(query.page, 10) || 1, 1);
-  const requestedPageSize = Number.parseInt(query.pageSize, 10) || 20;
+function parsePagination(query: Request["query"]): {
+  page: number;
+  pageSize: number;
+  skip: number;
+} {
+  const page = Math.max(Number.parseInt(String(query.page), 10) || 1, 1);
+  const requestedPageSize = Number.parseInt(String(query.pageSize), 10) || 20;
   const pageSize = Math.min(Math.max(requestedPageSize, 1), 100);
 
   return {
@@ -67,8 +91,8 @@ function parsePagination(query) {
   };
 }
 
-function buildProductWhere(query) {
-  const where = {};
+function buildProductWhere(query: Request["query"]): Prisma.ProductWhereInput {
+  const where: Prisma.ProductWhereInput = {};
   const search = typeof query.search === "string" ? query.search.trim() : "";
 
   if (search) {
@@ -82,7 +106,7 @@ function buildProductWhere(query) {
   return where;
 }
 
-function toNumber(value) {
+function toNumber(value: Prisma.Decimal | number | null | undefined): number | null | undefined {
   if (value === null || value === undefined) {
     return value;
   }
@@ -90,7 +114,7 @@ function toNumber(value) {
   return Number(value);
 }
 
-function productDto(product) {
+function productDto(product: Product) {
   return {
     id: product.id,
     name: product.name,
@@ -106,7 +130,7 @@ function productDto(product) {
   };
 }
 
-function movementDto(movement) {
+function movementDto(movement: MovementWithCreatedBy) {
   return {
     id: movement.id,
     productId: movement.productId,
@@ -126,14 +150,14 @@ function movementDto(movement) {
   };
 }
 
-function productDetailDto(product) {
+function productDetailDto(product: ProductDetail) {
   return {
     ...productDto(product),
     recentStockMovements: product.stockMovements.map(movementDto)
   };
 }
 
-async function findProductOrThrow(id) {
+async function findProductOrThrow(id: number): Promise<ProductDetail> {
   const product = await prisma.product.findUnique({
     where: { id },
     include: {
@@ -241,7 +265,7 @@ router.post(
     const data = stockAdjustmentSchema.parse(req.body);
 
     const result = await prisma.$transaction(async (tx) => {
-      const lockedProducts = await tx.$queryRaw`
+      const lockedProducts = await tx.$queryRaw<LockedProductStock[]>`
         SELECT id, currentStock
         FROM Product
         WHERE id = ${id}
@@ -280,7 +304,7 @@ router.post(
           quantity: data.quantity,
           movementType: data.movementType,
           reason: data.reason,
-          createdById: req.user.id
+          createdById: req.user!.id
         },
         include: {
           createdBy: {
@@ -297,6 +321,10 @@ router.post(
       const product = await tx.product.findUnique({
         where: { id }
       });
+
+      if (!product) {
+        throw new AppError("Product not found", 404);
+      }
 
       return {
         product,
@@ -358,4 +386,4 @@ router.get(
   })
 );
 
-module.exports = router;
+export default router;

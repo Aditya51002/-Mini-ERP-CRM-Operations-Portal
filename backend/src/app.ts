@@ -1,12 +1,12 @@
-const cors = require("cors");
-const express = require("express");
+import cors from "cors";
+import express from "express";
 
-const authRoutes = require("./modules/auth/auth.routes");
-const challansRoutes = require("./modules/challans/challans.routes");
-const customersRoutes = require("./modules/customers/customers.routes");
-const productsRoutes = require("./modules/products/products.routes");
-const { requireAuth } = require("./middleware/auth");
-const errorHandler = require("./middleware/errorHandler");
+import { requireAuth } from "./middleware/auth";
+import errorHandler from "./middleware/errorHandler";
+import authRoutes from "./modules/auth/auth.routes";
+import challansRoutes from "./modules/challans/challans.routes";
+import customersRoutes from "./modules/customers/customers.routes";
+import productsRoutes from "./modules/products/products.routes";
 
 const app = express();
 
@@ -38,4 +38,4 @@ app.use((req, res) => {
 
 app.use(errorHandler);
 
-module.exports = app;
+export default app;
