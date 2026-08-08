@@ -396,6 +396,7 @@ Main API routes:
 | `GET` | `/challans/:id` | Challan detail with items |
 | `POST` | `/challans` | Create draft challan, Admin/Sales |
 | `PUT` | `/challans/:id` | Edit draft challan, Admin/Sales |
+| `GET` | `/challans/:id/invoice` | Stream PDF invoice (CONFIRMED status only; returns 409 for DRAFT/CANCELLED), All roles |
 | `POST` | `/challans/:id/confirm` | Confirm draft challan, Admin/Sales |
 | `POST` | `/challans/:id/cancel` | Cancel draft or confirmed challan, Admin/Sales |
 

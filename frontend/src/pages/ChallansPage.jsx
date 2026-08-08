@@ -1,4 +1,4 @@
-import { CheckCircle2, ClipboardPlus, Search, XCircle } from "lucide-react";
+import { CheckCircle2, ClipboardPlus, Download, Search, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -147,6 +147,7 @@ export default function ChallansPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   const [newModalOpen, setNewModalOpen] = useState(false);
   const selectedId = id ? Number(id) : null;
 
@@ -247,6 +248,30 @@ export default function ChallansPage() {
       await refreshAfterAction(challanId);
     } catch (err) {
       setActionError(getApiErrorMessage(err));
+    }
+  }
+
+  async function downloadInvoice(challanId, challanNumber) {
+    setDownloadingInvoice(true);
+    setActionError("");
+
+    try {
+      const response = await apiClient.get(`/challans/${challanId}/invoice`, {
+        responseType: "blob"
+      });
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `invoice-${challanNumber}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setActionError(getApiErrorMessage(err));
+    } finally {
+      setDownloadingInvoice(false);
     }
   }
 
@@ -383,12 +408,23 @@ export default function ChallansPage() {
                   </button>
                 </div>
               )}
-              {canWrite && detail.status === "CONFIRMED" && (
-                <div className="border-t border-slate-200 pt-4">
-                  <button className="danger-button" onClick={() => cancelChallan(detail.id)} type="button">
-                    <XCircle size={18} />
-                    Cancel and restore stock
+              {detail.status === "CONFIRMED" && (
+                <div className="flex flex-wrap gap-2 border-t border-slate-200 pt-4">
+                  <button
+                    className="secondary-button"
+                    disabled={downloadingInvoice}
+                    onClick={() => downloadInvoice(detail.id, detail.challanNumber)}
+                    type="button"
+                  >
+                    <Download size={18} />
+                    {downloadingInvoice ? "Downloading..." : "Download Invoice"}
                   </button>
+                  {canWrite && (
+                    <button className="danger-button" onClick={() => cancelChallan(detail.id)} type="button">
+                      <XCircle size={18} />
+                      Cancel and restore stock
+                    </button>
+                  )}
                 </div>
               )}
             </div>

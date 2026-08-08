@@ -7,6 +7,7 @@ import prisma from "../../config/db";
 import { requireAuth, requireRole } from "../../middleware/auth";
 import { asyncHandler } from "../../middleware/errorHandler";
 import AppError from "../../utils/AppError";
+import { generateInvoicePdf } from "./invoice";
 
 const router = express.Router();
 
@@ -17,7 +18,8 @@ const challanCustomerSelect = {
   id: true,
   name: true,
   mobile: true,
-  businessName: true
+  businessName: true,
+  address: true
 } satisfies Prisma.CustomerSelect;
 
 const challanCreatedBySelect = {
@@ -400,6 +402,25 @@ router.post(
     const challan = await createDraftChallan(data, req.user!.id);
 
     res.status(201).json(challanDto(challan));
+  })
+);
+
+router.get(
+  "/:id/invoice",
+  asyncHandler(async (req, res) => {
+    const id = parseChallanId(req.params.id);
+    const challan = await findChallanDetailOrThrow(id);
+
+    if (challan.status !== "CONFIRMED") {
+      throw new AppError("Invoice is only available for confirmed challans", 409);
+    }
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="invoice-${challan.challanNumber}.pdf"`
+    );
+    generateInvoicePdf(challan, res);
   })
 );
 
