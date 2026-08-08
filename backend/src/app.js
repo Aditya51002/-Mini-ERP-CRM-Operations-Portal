@@ -2,6 +2,7 @@ const cors = require("cors");
 const express = require("express");
 
 const authRoutes = require("./modules/auth/auth.routes");
+const customersRoutes = require("./modules/customers/customers.routes");
 const { requireAuth } = require("./middleware/auth");
 const errorHandler = require("./middleware/errorHandler");
 
@@ -20,6 +21,7 @@ app.get("/health", (req, res) => {
 });
 
 app.use("/auth", authRoutes);
+app.use("/customers", customersRoutes);
 
 app.use(requireAuth);
 app.use((req, res) => {
