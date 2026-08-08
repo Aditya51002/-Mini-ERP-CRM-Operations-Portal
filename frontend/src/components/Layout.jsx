@@ -1,12 +1,8 @@
 import {
-  Boxes,
-  ClipboardCheck,
   ClipboardList,
   LayoutDashboard,
   LogOut,
   Package,
-  PackagePlus,
-  UserPlus,
   Users
 } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
@@ -16,7 +12,7 @@ import { useAuth } from "../context/AuthContext";
 const navItems = [
   {
     label: "Dashboard",
-    path: "/",
+    path: "/dashboard",
     icon: LayoutDashboard,
     roles: ["ADMIN", "SALES", "WAREHOUSE", "ACCOUNTS"]
   },
@@ -27,46 +23,16 @@ const navItems = [
     roles: ["ADMIN", "SALES", "WAREHOUSE", "ACCOUNTS"]
   },
   {
-    label: "New Customer",
-    path: "/customers/new",
-    icon: UserPlus,
-    roles: ["ADMIN", "SALES"]
-  },
-  {
     label: "Products",
     path: "/products",
     icon: Package,
     roles: ["ADMIN", "SALES", "WAREHOUSE", "ACCOUNTS"]
   },
   {
-    label: "Product Maintenance",
-    path: "/products/manage",
-    icon: PackagePlus,
-    roles: ["ADMIN", "WAREHOUSE"]
-  },
-  {
-    label: "Stock Movements",
-    path: "/stock",
-    icon: Boxes,
-    roles: ["ADMIN", "SALES", "WAREHOUSE", "ACCOUNTS"]
-  },
-  {
-    label: "Stock Adjustment",
-    path: "/stock/adjust",
-    icon: Boxes,
-    roles: ["ADMIN", "WAREHOUSE"]
-  },
-  {
     label: "Challans",
     path: "/challans",
     icon: ClipboardList,
     roles: ["ADMIN", "SALES", "WAREHOUSE", "ACCOUNTS"]
-  },
-  {
-    label: "Create / Confirm Challan",
-    path: "/challans/actions",
-    icon: ClipboardCheck,
-    roles: ["ADMIN", "SALES"]
   }
 ];
 
