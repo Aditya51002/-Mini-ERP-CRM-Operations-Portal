@@ -32,6 +32,12 @@ const users = [
 async function main() {
   const passwordHash = await bcrypt.hash(password, 12);
 
+  await prisma.stockMovement.deleteMany();
+  await prisma.challanItem.deleteMany();
+  await prisma.salesChallan.deleteMany();
+  await prisma.customerNote.deleteMany();
+  await prisma.product.deleteMany();
+  await prisma.customer.deleteMany();
   await prisma.user.deleteMany();
 
   await prisma.user.createMany({
