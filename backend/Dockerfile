@@ -11,7 +11,10 @@ COPY prisma ./prisma
 RUN npx prisma generate
 
 COPY src ./src
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x ./docker-entrypoint.sh
 
 EXPOSE 4000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node src/index.js"]
+ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["node", "src/index.js"]

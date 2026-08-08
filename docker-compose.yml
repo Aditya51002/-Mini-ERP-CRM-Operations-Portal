@@ -1,6 +1,6 @@
 services:
   mysql:
-    image: mysql:8.4
+    image: mysql:8
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: root_password
@@ -12,35 +12,47 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot_password"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot_password"]
       interval: 10s
       timeout: 5s
       retries: 10
+      start_period: 20s
 
   backend:
+    image: ${BACKEND_IMAGE:-mini-erp-crm-backend:local}
     build:
       context: ./backend
     restart: unless-stopped
-    environment:
-      DATABASE_URL: mysql://erp_user:erp_password@mysql:3306/mini_erp_crm
-      JWT_SECRET: change_this_secret_in_production
-      JWT_EXPIRES_IN: 8h
-      PORT: 4000
-      CORS_ORIGIN: http://localhost:5173
+    env_file:
+      - ./backend/.env
     ports:
       - "4000:4000"
     depends_on:
       mysql:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://localhost:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
   frontend:
+    image: ${FRONTEND_IMAGE:-mini-erp-crm-frontend:local}
     build:
       context: ./frontend
+      args:
+        VITE_API_URL: /api
     restart: unless-stopped
     ports:
-      - "5173:80"
+      - "80:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   mysql_data:

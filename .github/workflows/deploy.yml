@@ -1,129 +1,199 @@
-name: Build and Deploy
+name: CI/CD Deploy
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 permissions:
   contents: read
-  packages: write
+
+# Required GitHub repository secrets:
+# DOCKERHUB_USERNAME: Docker Hub username/namespace that owns the image repos.
+# DOCKERHUB_TOKEN: Docker Hub access token with permission to push/pull images.
+# EC2_HOST: Elastic IP address or public DNS name of the EC2 instance.
+# EC2_USER: SSH username for the instance, usually "ubuntu" on Ubuntu AMIs.
+# EC2_SSH_KEY: Private SSH key that can connect to the EC2 instance.
+#
+# The EC2 host must already contain a deploy directory with docker-compose.yml
+# and .env. This workflow only pulls new images and restarts containers.
+
+env:
+  NODE_VERSION: "20"
+  DEPLOY_DIR: /opt/mini-erp-crm
 
 jobs:
-  build:
+  build-and-push:
+    name: Build, Test, and Push Images
     runs-on: ubuntu-latest
-    outputs:
-      backend_image: ${{ steps.images.outputs.backend_image }}
-      frontend_image: ${{ steps.images.outputs.frontend_image }}
+    env:
+      BACKEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/mini-erp-crm-backend
+      FRONTEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/mini-erp-crm-frontend
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set image names
-        id: images
+      - name: Validate Docker Hub secrets
+        shell: bash
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -e
+          for name in DOCKERHUB_USERNAME DOCKERHUB_TOKEN; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing GitHub secret: ${name}"
+              exit 1
+            fi
+          done
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Generate Prisma Client
+        working-directory: backend
+        run: npm run prisma:generate
+
+      - name: Run backend lint if present
+        working-directory: backend
         shell: bash
         run: |
-          owner="${GITHUB_REPOSITORY_OWNER,,}"
-          echo "backend_image=ghcr.io/${owner}/mini-erp-crm-backend" >> "$GITHUB_OUTPUT"
-          echo "frontend_image=ghcr.io/${owner}/mini-erp-crm-frontend" >> "$GITHUB_OUTPUT"
+          if node -e "process.exit(require('./package.json').scripts?.lint ? 0 : 1)"; then
+            npm run lint
+          else
+            echo "No backend lint script found; skipping."
+          fi
 
-      - name: Login to GHCR
+      - name: Run backend tests if present
+        working-directory: backend
+        shell: bash
+        run: |
+          if node -e "process.exit(require('./package.json').scripts?.test ? 0 : 1)"; then
+            npm test
+          else
+            echo "No backend test script found; skipping."
+          fi
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run frontend lint if present
+        working-directory: frontend
+        shell: bash
+        run: |
+          if node -e "process.exit(require('./package.json').scripts?.lint ? 0 : 1)"; then
+            npm run lint
+          else
+            echo "No frontend lint script found; skipping."
+          fi
+
+      - name: Run frontend tests if present
+        working-directory: frontend
+        shell: bash
+        run: |
+          if node -e "process.exit(require('./package.json').scripts?.test ? 0 : 1)"; then
+            npm test
+          else
+            echo "No frontend test script found; skipping."
+          fi
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push backend
+      - name: Build and push backend image
         uses: docker/build-push-action@v6
         with:
           context: ./backend
           push: true
           tags: |
-            ${{ steps.images.outputs.backend_image }}:${{ github.sha }}
-            ${{ steps.images.outputs.backend_image }}:latest
+            ${{ env.BACKEND_IMAGE }}:latest
+            ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
 
-      - name: Build and push frontend
+      - name: Build and push frontend image
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
           push: true
+          build-args: |
+            VITE_API_URL=/api
           tags: |
-            ${{ steps.images.outputs.frontend_image }}:${{ github.sha }}
-            ${{ steps.images.outputs.frontend_image }}:latest
+            ${{ env.FRONTEND_IMAGE }}:latest
+            ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
 
   deploy:
-    needs: build
+    name: Deploy to EC2
     runs-on: ubuntu-latest
+    needs: build-and-push
     steps:
-      - name: Deploy on EC2
-        uses: appleboy/ssh-action@v1.2.0
+      - name: Validate EC2 secrets
+        shell: bash
         env:
-          BACKEND_IMAGE: ${{ needs.build.outputs.backend_image }}
-          FRONTEND_IMAGE: ${{ needs.build.outputs.frontend_image }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -e
+          for name in EC2_HOST EC2_USER EC2_SSH_KEY DOCKERHUB_USERNAME DOCKERHUB_TOKEN; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing GitHub secret: ${name}"
+              exit 1
+            fi
+          done
+
+      - name: Configure SSH
+        shell: bash
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          set -e
+          mkdir -p ~/.ssh
+          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/ec2_key
+          chmod 600 ~/.ssh/ec2_key
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+
+      - name: Pull images and restart compose stack
+        shell: bash
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
           IMAGE_TAG: ${{ github.sha }}
-          GHCR_USER: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE }}
-          MYSQL_USER: ${{ secrets.MYSQL_USER }}
-          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
-          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          envs: BACKEND_IMAGE,FRONTEND_IMAGE,IMAGE_TAG,GHCR_USER,GHCR_TOKEN,MYSQL_DATABASE,MYSQL_USER,MYSQL_PASSWORD,MYSQL_ROOT_PASSWORD,JWT_SECRET
-          script: |
-            set -e
-            mkdir -p ~/mini-erp-crm
-            cd ~/mini-erp-crm
+        run: |
+          set -e
+          SSH_TARGET="${EC2_USER}@${EC2_HOST}"
 
-            cat > docker-compose.yml <<COMPOSE
-            services:
-              mysql:
-                image: mysql:8.4
-                restart: unless-stopped
-                environment:
-                  MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-                  MYSQL_DATABASE: ${MYSQL_DATABASE}
-                  MYSQL_USER: ${MYSQL_USER}
-                  MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-                volumes:
-                  - mysql_data:/var/lib/mysql
-                healthcheck:
-                  test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD}"]
-                  interval: 10s
-                  timeout: 5s
-                  retries: 10
+          printf '%s' "$DOCKERHUB_TOKEN" |
+            ssh -i ~/.ssh/ec2_key "$SSH_TARGET" \
+              "docker login -u '$DOCKERHUB_USERNAME' --password-stdin"
 
-              backend:
-                image: ${BACKEND_IMAGE}:${IMAGE_TAG}
-                restart: unless-stopped
-                environment:
-                  DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE}
-                  JWT_SECRET: ${JWT_SECRET}
-                  JWT_EXPIRES_IN: 8h
-                  PORT: 4000
-                  CORS_ORIGIN: "*"
-                depends_on:
-                  mysql:
-                    condition: service_healthy
-
-              frontend:
-                image: ${FRONTEND_IMAGE}:${IMAGE_TAG}
-                restart: unless-stopped
-                ports:
-                  - "80:80"
-                depends_on:
-                  - backend
-
-            volumes:
-              mysql_data:
-            COMPOSE
-
-            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
-            docker compose pull
-            docker compose up -d
-            docker image prune -f
+          ssh -i ~/.ssh/ec2_key "$SSH_TARGET" \
+            "cd '${DEPLOY_DIR}' && \
+             export IMAGE_TAG='${IMAGE_TAG}' && \
+             docker compose pull && \
+             docker compose up -d && \
+             docker image prune -f"
