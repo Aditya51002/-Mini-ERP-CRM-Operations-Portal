@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { ZodError } from "zod";
 
@@ -41,6 +42,15 @@ export default function errorHandler(
       error: {
         message: "Validation failed",
         details: error.flatten()
+      }
+    });
+    return;
+  }
+
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+    res.status(409).json({
+      error: {
+        message: "Cannot delete this record because other records reference it."
       }
     });
     return;
