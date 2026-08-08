@@ -427,7 +427,7 @@ Required GitHub repository secrets:
 | `DOCKERHUB_USERNAME` | Docker Hub username/namespace |
 | `DOCKERHUB_TOKEN` | Docker Hub access token |
 | `EC2_HOST` | EC2 Elastic IP or public DNS |
-| `EC2_USER` | SSH username, usually `ubuntu` |
+| `EC2_USER` (optional) | SSH username (defaults to `ubuntu`) |
 | `EC2_SSH_KEY` | Private SSH key for the EC2 instance |
 
 The workflow assumes the EC2 deploy directory is:

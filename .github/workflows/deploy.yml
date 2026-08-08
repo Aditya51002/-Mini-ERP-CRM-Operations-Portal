@@ -12,7 +12,7 @@ permissions:
 # DOCKERHUB_USERNAME: Docker Hub username/namespace that owns the image repos.
 # DOCKERHUB_TOKEN: Docker Hub access token with permission to push/pull images.
 # EC2_HOST: Elastic IP address or public DNS name of the EC2 instance.
-# EC2_USER: SSH username for the instance, usually "ubuntu" on Ubuntu AMIs.
+# EC2_USER: Optional SSH username for the instance (defaults to "ubuntu").
 # EC2_SSH_KEY: Private SSH key that can connect to the EC2 instance.
 #
 # The EC2 host must already contain a deploy directory with docker-compose.yml
@@ -154,12 +154,11 @@ jobs:
         shell: bash
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ secrets.EC2_USER }}
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          if [ -n "$EC2_HOST" ] && [ -n "$EC2_USER" ] && [ -n "$EC2_SSH_KEY" ] && [ -n "$DOCKERHUB_USERNAME" ] && [ -n "$DOCKERHUB_TOKEN" ]; then
+          if [ -n "$EC2_HOST" ] && [ -n "$EC2_SSH_KEY" ] && [ -n "$DOCKERHUB_USERNAME" ] && [ -n "$DOCKERHUB_TOKEN" ]; then
             echo "can_deploy=true" >> "$GITHUB_OUTPUT"
           else
             echo "::warning::Deploy secrets are not fully configured. Deployment will be skipped."
@@ -190,7 +189,8 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           set -e
-          SSH_TARGET="${EC2_USER}@${EC2_HOST}"
+          EC2_USER_VALUE="${EC2_USER:-ubuntu}"
+          SSH_TARGET="${EC2_USER_VALUE}@${EC2_HOST}"
 
           printf '%s' "$DOCKERHUB_TOKEN" |
             ssh -i ~/.ssh/ec2_key "$SSH_TARGET" \
