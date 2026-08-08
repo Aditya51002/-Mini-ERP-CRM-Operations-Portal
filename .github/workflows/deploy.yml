@@ -1,0 +1,129 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      backend_image: ${{ steps.images.outputs.backend_image }}
+      frontend_image: ${{ steps.images.outputs.frontend_image }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set image names
+        id: images
+        shell: bash
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "backend_image=ghcr.io/${owner}/mini-erp-crm-backend" >> "$GITHUB_OUTPUT"
+          echo "frontend_image=ghcr.io/${owner}/mini-erp-crm-frontend" >> "$GITHUB_OUTPUT"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ steps.images.outputs.backend_image }}:${{ github.sha }}
+            ${{ steps.images.outputs.backend_image }}:latest
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ steps.images.outputs.frontend_image }}:${{ github.sha }}
+            ${{ steps.images.outputs.frontend_image }}:latest
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy on EC2
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          BACKEND_IMAGE: ${{ needs.build.outputs.backend_image }}
+          FRONTEND_IMAGE: ${{ needs.build.outputs.frontend_image }}
+          IMAGE_TAG: ${{ github.sha }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE }}
+          MYSQL_USER: ${{ secrets.MYSQL_USER }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: BACKEND_IMAGE,FRONTEND_IMAGE,IMAGE_TAG,GHCR_USER,GHCR_TOKEN,MYSQL_DATABASE,MYSQL_USER,MYSQL_PASSWORD,MYSQL_ROOT_PASSWORD,JWT_SECRET
+          script: |
+            set -e
+            mkdir -p ~/mini-erp-crm
+            cd ~/mini-erp-crm
+
+            cat > docker-compose.yml <<COMPOSE
+            services:
+              mysql:
+                image: mysql:8.4
+                restart: unless-stopped
+                environment:
+                  MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+                  MYSQL_DATABASE: ${MYSQL_DATABASE}
+                  MYSQL_USER: ${MYSQL_USER}
+                  MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+                volumes:
+                  - mysql_data:/var/lib/mysql
+                healthcheck:
+                  test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD}"]
+                  interval: 10s
+                  timeout: 5s
+                  retries: 10
+
+              backend:
+                image: ${BACKEND_IMAGE}:${IMAGE_TAG}
+                restart: unless-stopped
+                environment:
+                  DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE}
+                  JWT_SECRET: ${JWT_SECRET}
+                  JWT_EXPIRES_IN: 8h
+                  PORT: 4000
+                  FRONTEND_ORIGIN: "*"
+                depends_on:
+                  mysql:
+                    condition: service_healthy
+
+              frontend:
+                image: ${FRONTEND_IMAGE}:${IMAGE_TAG}
+                restart: unless-stopped
+                ports:
+                  - "80:80"
+                depends_on:
+                  - backend
+
+            volumes:
+              mysql_data:
+            COMPOSE
+
+            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+            docker compose pull
+            docker compose up -d
+            docker image prune -f

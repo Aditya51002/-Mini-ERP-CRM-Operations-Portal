@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  SALES
+  WAREHOUSE
+  ACCOUNTS
+}
+
+enum ChallanStatus {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+enum StockMovementType {
+  IN
+  OUT
+}
+
+model User {
+  id             Int             @id @default(autoincrement())
+  name           String
+  email          String          @unique
+  passwordHash   String
+  role           Role            @default(SALES)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  challans       Challan[]       @relation("ChallanCreator")
+  stockMovements StockMovement[] @relation("StockMovementCreator")
+}
+
+model Customer {
+  id        Int       @id @default(autoincrement())
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+  gstNumber String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  challans  Challan[]
+}
+
+model Product {
+  id              Int             @id @default(autoincrement())
+  name            String
+  sku             String          @unique
+  unitPrice       Decimal         @db.Decimal(12, 2)
+  currentStock    Int             @default(0)
+  minStockAlert   Int             @default(0)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  stockMovements  StockMovement[]
+  challanItems    ChallanItem[]
+}
+
+model StockMovement {
+  id             Int               @id @default(autoincrement())
+  productId      Int
+  movementType   StockMovementType
+  quantity       Int
+  reason         String
+  challanId      Int?
+  challanItemId  Int?
+  createdById    Int?
+  createdAt      DateTime          @default(now())
+  product        Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  challan        Challan?          @relation(fields: [challanId], references: [id], onDelete: SetNull)
+  challanItem    ChallanItem?      @relation(fields: [challanItemId], references: [id], onDelete: SetNull)
+  createdBy      User?             @relation("StockMovementCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([challanId])
+  @@index([createdAt])
+}
+
+model Challan {
+  id            Int            @id @default(autoincrement())
+  number        String         @unique
+  customerId    Int
+  customerName  String
+  status        ChallanStatus  @default(DRAFT)
+  notes         String?
+  createdById   Int?
+  confirmedAt   DateTime?
+  cancelledAt   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  customer      Customer       @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdBy     User?          @relation("ChallanCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  items         ChallanItem[]
+  movements     StockMovement[]
+
+  @@index([customerId])
+  @@index([status])
+}
+
+model ChallanItem {
+  id             Int             @id @default(autoincrement())
+  challanId      Int
+  productId      Int
+  productName    String
+  sku            String
+  unitPrice      Decimal         @db.Decimal(12, 2)
+  quantity       Int
+  lineTotal      Decimal         @db.Decimal(12, 2)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  challan        Challan         @relation(fields: [challanId], references: [id], onDelete: Cascade)
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  stockMovements StockMovement[]
+
+  @@index([challanId])
+  @@index([productId])
+}

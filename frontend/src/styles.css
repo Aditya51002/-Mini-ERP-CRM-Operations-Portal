@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #f5f7f8;
+  color: #17202a;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.control {
+  @apply h-10 w-full border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-workgreen focus:ring-2 focus:ring-workgreen/20;
+  border-radius: 6px;
+}
+
+.icon-button {
+  @apply inline-flex h-9 w-9 shrink-0 items-center justify-center border border-slate-300 bg-white text-slate-700 transition hover:border-workgreen hover:text-workgreen disabled:cursor-not-allowed disabled:opacity-40;
+  border-radius: 6px;
+}
+
+.primary-button {
+  @apply inline-flex h-10 shrink-0 items-center justify-center gap-2 bg-workgreen px-4 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50;
+  border-radius: 6px;
+}
+
+.secondary-button {
+  @apply inline-flex h-10 shrink-0 items-center justify-center gap-2 border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-workgreen hover:text-workgreen disabled:cursor-not-allowed disabled:opacity-50;
+  border-radius: 6px;
+}
+
+.danger-button {
+  @apply inline-flex h-10 shrink-0 items-center justify-center gap-2 bg-workred px-4 text-sm font-semibold text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50;
+  border-radius: 6px;
+}
+
+.panel {
+  @apply border border-slate-200 bg-white;
+  border-radius: 8px;
+}
+
+.table-head {
+  @apply bg-slate-100 text-left text-xs font-semibold uppercase tracking-normal text-slate-600;
+}
+
+.table-cell {
+  @apply border-t border-slate-200 px-3 py-3 text-sm;
+}
