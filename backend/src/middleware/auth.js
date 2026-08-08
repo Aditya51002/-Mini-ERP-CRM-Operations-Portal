@@ -1,50 +1,57 @@
 const jwt = require("jsonwebtoken");
 
-const prisma = require("../prisma");
-const { httpError } = require("../utils/httpError");
-const { asyncHandler } = require("../utils/asyncHandler");
+const AppError = require("../utils/AppError");
 
-function signToken(user) {
-  return jwt.sign(
-    {
-      sub: user.id,
-      role: user.role,
-      email: user.email
-    },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || "8h" }
-  );
+function getJwtSecret() {
+  if (!process.env.JWT_SECRET) {
+    throw new AppError("JWT_SECRET is not configured", 500);
+  }
+
+  return process.env.JWT_SECRET;
 }
 
-const requireAuth = asyncHandler(async (req, res, next) => {
-  const header = req.headers.authorization || "";
-  const [scheme, token] = header.split(" ");
-
-  if (scheme !== "Bearer" || !token) {
-    throw httpError(401, "Missing bearer token");
-  }
-
-  let payload;
+function requireAuth(req, res, next) {
   try {
-    payload = jwt.verify(token, process.env.JWT_SECRET);
+    const authHeader = req.headers.authorization || "";
+    const [scheme, token] = authHeader.split(" ");
+
+    if (scheme !== "Bearer" || !token) {
+      throw new AppError("Authentication required", 401);
+    }
+
+    const payload = jwt.verify(token, getJwtSecret());
+
+    req.user = {
+      id: payload.id,
+      role: payload.role,
+      email: payload.email
+    };
+
+    next();
   } catch (error) {
-    throw httpError(401, "Invalid or expired token");
+    if (error instanceof AppError) {
+      return next(error);
+    }
+
+    return next(new AppError("Invalid or expired token", 401));
   }
+}
 
-  const user = await prisma.user.findUnique({
-    where: { id: Number(payload.sub) },
-    select: { id: true, name: true, email: true, role: true }
-  });
+function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return next(new AppError("Authentication required", 401));
+    }
 
-  if (!user) {
-    throw httpError(401, "User no longer exists");
-  }
+    if (!roles.includes(req.user.role)) {
+      return next(new AppError("Forbidden", 403));
+    }
 
-  req.user = user;
-  next();
-});
+    next();
+  };
+}
 
 module.exports = {
   requireAuth,
-  signToken
+  requireRole
 };

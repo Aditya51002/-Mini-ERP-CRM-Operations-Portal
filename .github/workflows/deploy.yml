@@ -106,7 +106,7 @@ jobs:
                   JWT_SECRET: ${JWT_SECRET}
                   JWT_EXPIRES_IN: 8h
                   PORT: 4000
-                  FRONTEND_ORIGIN: "*"
+                  CORS_ORIGIN: "*"
                 depends_on:
                   mysql:
                     condition: service_healthy

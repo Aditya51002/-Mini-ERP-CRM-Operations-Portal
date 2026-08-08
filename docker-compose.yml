@@ -26,7 +26,7 @@ services:
       JWT_SECRET: change_this_secret_in_production
       JWT_EXPIRES_IN: 8h
       PORT: 4000
-      FRONTEND_ORIGIN: http://localhost:5173
+      CORS_ORIGIN: http://localhost:5173
     ports:
       - "4000:4000"
     depends_on:

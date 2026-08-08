@@ -14,10 +14,16 @@ enum Role {
   ACCOUNTS
 }
 
-enum ChallanStatus {
-  DRAFT
-  CONFIRMED
-  CANCELLED
+enum CustomerType {
+  RETAIL
+  WHOLESALE
+  DISTRIBUTOR
+}
+
+enum CustomerStatus {
+  LEAD
+  ACTIVE
+  INACTIVE
 }
 
 enum StockMovementType {
@@ -25,98 +31,113 @@ enum StockMovementType {
   OUT
 }
 
+enum SalesChallanStatus {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
 model User {
-  id             Int             @id @default(autoincrement())
+  id             Int              @id @default(autoincrement())
   name           String
-  email          String          @unique
+  email          String           @unique
   passwordHash   String
-  role           Role            @default(SALES)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  challans       Challan[]       @relation("ChallanCreator")
-  stockMovements StockMovement[] @relation("StockMovementCreator")
+  role           Role
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  customerNotes  CustomerNote[]
+  stockMovements StockMovement[]
+  salesChallans  SalesChallan[]
 }
 
 model Customer {
-  id        Int       @id @default(autoincrement())
-  name      String
-  email     String?
-  phone     String?
-  address   String?
-  gstNumber String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  challans  Challan[]
+  id             Int              @id @default(autoincrement())
+  name           String
+  mobile         String?
+  email          String?
+  businessName   String?
+  gstNumber      String?
+  customerType   CustomerType     @default(RETAIL)
+  address        String?
+  status         CustomerStatus   @default(LEAD)
+  followUpDate   DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  notes          CustomerNote[]
+  salesChallans  SalesChallan[]
+}
+
+model CustomerNote {
+  id          Int       @id @default(autoincrement())
+  customerId  Int
+  note        String
+  createdById Int
+  createdAt   DateTime  @default(now())
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdBy   User      @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([customerId])
+  @@index([createdById])
 }
 
 model Product {
-  id              Int             @id @default(autoincrement())
-  name            String
-  sku             String          @unique
-  unitPrice       Decimal         @db.Decimal(12, 2)
-  currentStock    Int             @default(0)
-  minStockAlert   Int             @default(0)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  stockMovements  StockMovement[]
-  challanItems    ChallanItem[]
+  id             Int             @id @default(autoincrement())
+  name           String
+  sku            String          @unique
+  category       String?
+  unitPrice      Decimal         @db.Decimal(12, 2)
+  currentStock   Int             @default(0)
+  minStockAlert  Int             @default(0)
+  location       String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  stockMovements StockMovement[]
+  challanItems   ChallanItem[]
 }
 
 model StockMovement {
-  id             Int               @id @default(autoincrement())
-  productId      Int
-  movementType   StockMovementType
-  quantity       Int
-  reason         String
-  challanId      Int?
-  challanItemId  Int?
-  createdById    Int?
-  createdAt      DateTime          @default(now())
-  product        Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
-  challan        Challan?          @relation(fields: [challanId], references: [id], onDelete: SetNull)
-  challanItem    ChallanItem?      @relation(fields: [challanItemId], references: [id], onDelete: SetNull)
-  createdBy      User?             @relation("StockMovementCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  id           Int               @id @default(autoincrement())
+  productId    Int
+  quantity     Int
+  movementType StockMovementType
+  reason       String
+  createdById  Int
+  createdAt    DateTime          @default(now())
+  product      Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  createdBy    User              @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([productId])
-  @@index([challanId])
-  @@index([createdAt])
+  @@index([createdById])
 }
 
-model Challan {
-  id            Int            @id @default(autoincrement())
-  number        String         @unique
-  customerId    Int
-  customerName  String
-  status        ChallanStatus  @default(DRAFT)
-  notes         String?
-  createdById   Int?
-  confirmedAt   DateTime?
-  cancelledAt   DateTime?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  customer      Customer       @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  createdBy     User?          @relation("ChallanCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  items         ChallanItem[]
-  movements     StockMovement[]
+model SalesChallan {
+  id             Int                 @id @default(autoincrement())
+  challanNumber  String              @unique
+  customerId     Int
+  totalQuantity  Int                 @default(0)
+  status         SalesChallanStatus  @default(DRAFT)
+  createdById    Int
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  customer       Customer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdBy      User                @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  items          ChallanItem[]
 
   @@index([customerId])
+  @@index([createdById])
   @@index([status])
 }
 
 model ChallanItem {
-  id             Int             @id @default(autoincrement())
-  challanId      Int
-  productId      Int
-  productName    String
-  sku            String
-  unitPrice      Decimal         @db.Decimal(12, 2)
-  quantity       Int
-  lineTotal      Decimal         @db.Decimal(12, 2)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  challan        Challan         @relation(fields: [challanId], references: [id], onDelete: Cascade)
-  product        Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
-  stockMovements StockMovement[]
+  id                  Int            @id @default(autoincrement())
+  challanId           Int
+  productId           Int
+  productNameSnapshot String
+  skuSnapshot         String
+  unitPriceSnapshot   Decimal        @db.Decimal(12, 2)
+  quantity            Int
+  challan             SalesChallan   @relation(fields: [challanId], references: [id], onDelete: Cascade)
+  product             Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@index([challanId])
   @@index([productId])

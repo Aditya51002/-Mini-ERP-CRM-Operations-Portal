@@ -1,12 +1,12 @@
 require("dotenv").config();
 
 const app = require("./app");
-const prisma = require("./prisma");
+const prisma = require("./config/db");
 
-const port = Number(process.env.PORT || 4000);
+const port = process.env.PORT || 4000;
 
 const server = app.listen(port, () => {
-  console.log(`API listening on port ${port}`);
+  console.log(`Server running on port ${port}`);
 });
 
 async function shutdown() {
