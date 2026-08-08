@@ -6,6 +6,15 @@ inventory, stock movements, and sales challans.
 Repository:
 `https://github.com/Aditya51002/-Mini-ERP-CRM-Operations-Portal.git`
 
+## Live Deployment
+
+- Live frontend: http://3.110.174.53
+- Live backend API (via nginx proxy): http://3.110.174.53/api
+- Deployment verified end-to-end (login for all 4 roles, customer/product/
+  challan CRUD, challan confirm with stock deduction, insufficient-stock
+  rejection, challan cancel with stock restoration) as of August 9, 2026.
+
+
 ## Project Overview
 
 Mini ERP + CRM Operations Portal is a small operations system for teams that
@@ -55,19 +64,21 @@ up -d`.
 - Static serving: nginx
 - CI/CD: GitHub Actions, Docker Hub, AWS EC2 over SSH
 
-## RBAC Matrix
+## Role-Based Access Control (RBAC) Matrix
 
-Backend middleware enforces this matrix.
+Backend authorization relies on the `requireAuth` and `requireRole`
+middlewares defined in `backend/src/middleware/auth.ts`. Every write route
+is guarded server-side by `requireRole(...)` — frontend UI controls only
+conditionally render actions based on user role for convenience; the API
+remains the actual source of truth for authorization.
 
-| Module | Admin | Sales | Warehouse | Accounts |
+| Module | ADMIN | SALES | WAREHOUSE | ACCOUNTS |
 | --- | --- | --- | --- | --- |
-| Customers | Full | Full | Read | Read |
-| Products | Full | Read | Full | Read |
-| Stock movements | Full | Read | Full | Read |
-| Challans | Full | Create/Confirm/Cancel | Read | Read |
+| Customers & Notes | Full Access | Full Access | Read-only | Read-only |
+| Products & Stock Adjustment | Full Access | Read-only | Full Access | Read-only |
+| Stock Movements Audit | Full Access | Read-only | Full Access | Read-only |
+| Sales Challans | Full Access | Create/Edit/Confirm/Cancel | Read-only | Read-only |
 
-Frontend role-based hiding is only a convenience. The API remains the source
-of truth for authorization.
 
 ## Sales Challan Business Rules
 
@@ -306,6 +317,28 @@ docker compose exec backend npm run seed
 
 The seed script recreates exactly one user for each role.
 
+### Demo Data (optional)
+
+For demoing or recording the app with realistic data, run the demo seed
+script after the base seed. It does not touch the `User` table — it only
+populates customers, products, stock movements, and sales challans covering
+all three challan statuses (draft, confirmed, cancelled) and two
+intentionally low-stock products, so the low-stock flag and confirm/cancel
+flows are visible immediately.
+
+```bash
+npm run seed        # creates the 4 role users, if not already seeded
+npm run seed:demo   # adds demo customers, products, and challans
+```
+
+In Docker:
+
+```bash
+docker compose exec backend npm run seed
+docker compose exec backend npm run seed:demo
+```
+
+
 ## Test Login Credentials
 
 ```text
@@ -468,6 +501,11 @@ If you use a different path, update `DEPLOY_DIR` in
   automated database backups, multi-AZ failover, or horizontal scaling.
 - The frontend hides actions by role, but security depends on the backend RBAC
   middleware.
+- MySQL's port `3306` is intentionally not published to the host — it is
+  only reachable inside the docker-compose network, from the `backend`
+  service. This was a deliberate fix after an initial deployment briefly
+  exposed it publicly.
+
 
 ## Assumptions Made
 
