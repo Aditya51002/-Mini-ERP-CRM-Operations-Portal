@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "seed": "node dist/utils/seed.js"
+    "seed": "node dist/utils/seed.js",
+    "seed:demo": "node dist/utils/demoSeed.js"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

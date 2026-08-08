@@ -153,6 +153,18 @@ Seed the four test users:
 docker compose exec backend npm run seed
 ```
 
+Seed the demo data:
+
+```bash
+docker compose exec backend npm run seed:demo
+```
+
+Note: For security, MySQL port 3306 is not published to the host. Direct database access must go through the backend container or via:
+
+```bash
+docker compose exec mysql mysql -u root -p
+```
+
 Reset the Docker database:
 
 ```bash
