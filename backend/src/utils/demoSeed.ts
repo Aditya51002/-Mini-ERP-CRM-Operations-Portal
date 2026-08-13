@@ -12,6 +12,9 @@ async function main(): Promise<void> {
   const sales = await prisma.user.findUniqueOrThrow({ where: { email: "sales@erp.test" } });
   const warehouse = await prisma.user.findUniqueOrThrow({ where: { email: "warehouse@erp.test" } });
 
+  await prisma.purchaseOrderItem.deleteMany();
+  await prisma.purchaseOrder.deleteMany();
+  await prisma.supplier.deleteMany();
   await prisma.stockMovement.deleteMany();
   await prisma.challanItem.deleteMany();
   await prisma.salesChallan.deleteMany();
@@ -108,7 +111,49 @@ async function main(): Promise<void> {
   await prisma.stockMovement.create({ data: { productId: cancelledItems[0].product.id, quantity: cancelledItems[0].quantity, movementType: "OUT", reason: `Challan #${cancelled.challanNumber} confirmed`, createdById: sales.id } });
   await prisma.stockMovement.create({ data: { productId: cancelledItems[0].product.id, quantity: cancelledItems[0].quantity, movementType: "IN", reason: `Challan #${cancelled.challanNumber} cancelled`, createdById: admin.id } });
 
-  console.log("Demo data seeded: 4 customers, 6 products (2 below low-stock threshold), 3 challans (confirmed/draft/cancelled).");
+  // Seed Suppliers
+  const supplier1 = await prisma.supplier.create({
+    data: {
+      name: "National Metal Corp",
+      code: "SUP-NMC-001",
+      contactPerson: "Rajesh Gupta",
+      email: "procurement@nationalmetal.in",
+      phone: "+91 98111 22233",
+      address: "Okhla Industrial Estate Phase III, New Delhi",
+      gstNumber: "07AAACN1234F1Z8"
+    }
+  });
+
+  const supplier2 = await prisma.supplier.create({
+    data: {
+      name: "Supreme Polymers India",
+      code: "SUP-SPI-002",
+      contactPerson: "Sunil Verma",
+      email: "orders@supremepolymers.com",
+      phone: "+91 98222 33344",
+      address: "GIDC Estate, Vadodara, Gujarat",
+      gstNumber: "24AAACS5678D1Z4"
+    }
+  });
+
+  // Seed Purchase Order
+  await prisma.purchaseOrder.create({
+    data: {
+      poNumber: `PO-${new Date().getFullYear()}-0001`,
+      supplierId: supplier1.id,
+      totalAmount: "2500.00",
+      status: "ORDERED",
+      notes: "Urgent shipment required for hardware stock replenishment.",
+      createdById: warehouse.id,
+      items: {
+        create: [
+          { productId: products[0].id, quantity: 200, unitCostSnapshot: "12.50" }
+        ]
+      }
+    }
+  });
+
+  console.log("Demo data seeded: 4 customers, 6 products, 2 suppliers, 1 active PO, 3 challans.");
 }
 
 main()

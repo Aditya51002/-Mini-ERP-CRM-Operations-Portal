@@ -1,8 +1,10 @@
 import {
+  Building2,
   ClipboardList,
   LayoutDashboard,
   LogOut,
   Package,
+  ShoppingBag,
   Users
 } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
@@ -26,6 +28,18 @@ const navItems = [
     label: "Products",
     path: "/products",
     icon: Package,
+    roles: ["ADMIN", "SALES", "WAREHOUSE", "ACCOUNTS"]
+  },
+  {
+    label: "Suppliers",
+    path: "/suppliers",
+    icon: Building2,
+    roles: ["ADMIN", "SALES", "WAREHOUSE", "ACCOUNTS"]
+  },
+  {
+    label: "Purchase Orders",
+    path: "/purchase-orders",
+    icon: ShoppingBag,
     roles: ["ADMIN", "SALES", "WAREHOUSE", "ACCOUNTS"]
   },
   {

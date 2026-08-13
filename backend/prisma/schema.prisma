@@ -37,6 +37,13 @@ enum SalesChallanStatus {
   CANCELLED
 }
 
+enum PurchaseOrderStatus {
+  DRAFT
+  ORDERED
+  RECEIVED
+  CANCELLED
+}
+
 model User {
   id             Int              @id @default(autoincrement())
   name           String
@@ -48,6 +55,7 @@ model User {
   customerNotes  CustomerNote[]
   stockMovements StockMovement[]
   salesChallans  SalesChallan[]
+  purchaseOrders PurchaseOrder[]
 }
 
 model Customer {
@@ -81,18 +89,19 @@ model CustomerNote {
 }
 
 model Product {
-  id             Int             @id @default(autoincrement())
-  name           String
-  sku            String          @unique
-  category       String?
-  unitPrice      Decimal         @db.Decimal(12, 2)
-  currentStock   Int             @default(0)
-  minStockAlert  Int             @default(0)
-  location       String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  stockMovements StockMovement[]
-  challanItems   ChallanItem[]
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  sku                String              @unique
+  category           String?
+  unitPrice          Decimal             @db.Decimal(12, 2)
+  currentStock       Int                 @default(0)
+  minStockAlert      Int                 @default(0)
+  location           String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  stockMovements     StockMovement[]
+  challanItems       ChallanItem[]
+  purchaseOrderItems PurchaseOrderItem[]
 }
 
 model StockMovement {
@@ -142,3 +151,50 @@ model ChallanItem {
   @@index([challanId])
   @@index([productId])
 }
+
+model Supplier {
+  id             Int             @id @default(autoincrement())
+  name           String
+  code           String          @unique
+  contactPerson  String?
+  email          String?
+  phone          String?
+  address        String?
+  gstNumber      String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  purchaseOrders PurchaseOrder[]
+}
+
+model PurchaseOrder {
+  id          Int                 @id @default(autoincrement())
+  poNumber    String              @unique
+  supplierId  Int
+  totalAmount Decimal             @default(0) @db.Decimal(12, 2)
+  status      PurchaseOrderStatus @default(DRAFT)
+  notes       String?
+  createdById Int
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  supplier    Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  createdBy   User                @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  items       PurchaseOrderItem[]
+
+  @@index([supplierId])
+  @@index([createdById])
+  @@index([status])
+}
+
+model PurchaseOrderItem {
+  id               Int           @id @default(autoincrement())
+  poId             Int
+  productId        Int
+  unitCostSnapshot Decimal       @db.Decimal(12, 2)
+  quantity         Int
+  purchaseOrder    PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  product          Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([poId])
+  @@index([productId])
+}
+
