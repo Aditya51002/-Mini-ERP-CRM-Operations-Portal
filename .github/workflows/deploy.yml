@@ -202,6 +202,7 @@ jobs:
 
           ssh -i ~/.ssh/ec2_key "$SSH_TARGET" \
             "cd '${DEPLOY_DIR}' && \
+             docker image prune -af || true && \
              export IMAGE_TAG='${IMAGE_TAG}' && \
              docker compose pull && \
              docker compose up -d && \
