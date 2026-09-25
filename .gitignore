@@ -11,3 +11,7 @@ yarn-error.log*
 coverage/
 .idea/
 .vscode/
+.venv/
+__pycache__/
+.ruff_cache/
+.pytest_cache/

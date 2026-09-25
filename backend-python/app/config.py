@@ -1,0 +1,11 @@
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    database_url: str
+    reports_database_url: str | None = None
+    jwt_secret: str
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+
+settings = Settings()

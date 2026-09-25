@@ -1,4 +1,7 @@
+.env
+.env.*
+!.env.example
 node_modules
 dist
-npm-debug.log
-.env
+coverage
+npm-debug.log*
