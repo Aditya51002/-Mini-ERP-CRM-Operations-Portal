@@ -1,4 +1,11 @@
-import { AlertTriangle, Building2, CheckCircle2, DollarSign, Package, ShoppingBag, TrendingUp, Users } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  DollarSign,
+  Package,
+  ShoppingBag,
+  TrendingUp
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   Area,
@@ -56,14 +63,18 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-ink">Executive Operations Dashboard</h1>
-        <p className="text-sm text-slate-500">Real-time inventory valuation, revenue performance, and supply chain insights</p>
+        <p className="text-sm text-slate-500">
+          Real-time inventory valuation, revenue performance, and supply chain insights
+        </p>
       </div>
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Sales Revenue</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Total Sales Revenue
+            </span>
             <div className="rounded-full bg-teal-50 p-2 text-teal-600">
               <DollarSign size={20} />
             </div>
@@ -77,18 +88,24 @@ export default function DashboardPage() {
 
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Inventory Valuation</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Inventory Valuation
+            </span>
             <div className="rounded-full bg-blue-50 p-2 text-blue-600">
               <Package size={20} />
             </div>
           </div>
-          <p className="mt-3 text-2xl font-bold text-ink">{formatMoney(kpis.totalInventoryValuation)}</p>
+          <p className="mt-3 text-2xl font-bold text-ink">
+            {formatMoney(kpis.totalInventoryValuation)}
+          </p>
           <p className="mt-1 text-xs text-slate-500">{kpis.totalProducts} Distinct SKUs in Stock</p>
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Inbound Procurement</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Inbound Procurement
+            </span>
             <div className="rounded-full bg-amber-50 p-2 text-amber-600">
               <ShoppingBag size={20} />
             </div>
@@ -99,12 +116,18 @@ export default function DashboardPage() {
 
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Low Stock Alerts</span>
-            <div className={`rounded-full p-2 ${kpis.lowStockAlertCount > 0 ? "bg-red-50 text-red-600" : "bg-teal-50 text-teal-600"}`}>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Low Stock Alerts
+            </span>
+            <div
+              className={`rounded-full p-2 ${kpis.lowStockAlertCount > 0 ? "bg-red-50 text-red-600" : "bg-teal-50 text-teal-600"}`}
+            >
               <AlertTriangle size={20} />
             </div>
           </div>
-          <p className="mt-3 text-2xl font-bold text-ink">{kpis.lowStockAlertCount} SKUs Alerting</p>
+          <p className="mt-3 text-2xl font-bold text-ink">
+            {kpis.lowStockAlertCount} SKUs Alerting
+          </p>
           <p className="mt-1 text-xs text-slate-500">Needs Inventory Replenishment</p>
         </div>
       </div>
@@ -134,7 +157,14 @@ export default function DashboardPage() {
                   formatter={(val) => [formatMoney(val), "Revenue"]}
                   labelStyle={{ fontWeight: "bold" }}
                 />
-                <Area dataKey="revenue" fill="url(#colorRevenue)" fillOpacity={1} stroke="#0d9488" strokeWidth={2} type="monotone" />
+                <Area
+                  dataKey="revenue"
+                  fill="url(#colorRevenue)"
+                  fillOpacity={1}
+                  stroke="#0d9488"
+                  strokeWidth={2}
+                  type="monotone"
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -173,11 +203,17 @@ export default function DashboardPage() {
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-base font-bold text-ink">Top Customers by Revenue</h2>
           {topCustomers.length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-500">No confirmed customer transactions yet.</p>
+            <p className="py-8 text-center text-sm text-slate-500">
+              No confirmed customer transactions yet.
+            </p>
           ) : (
             <div className="h-60 w-full">
               <ResponsiveContainer height="100%" width="100%">
-                <BarChart data={topCustomers} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <BarChart
+                  data={topCustomers}
+                  layout="vertical"
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                   <XAxis type="number" />
                   <YAxis dataKey="customerName" type="category" width={120} />
@@ -221,7 +257,9 @@ export default function DashboardPage() {
                         <div className="font-semibold text-ink">{p.name}</div>
                         <div className="text-xs text-slate-500 font-mono">{p.sku}</div>
                       </td>
-                      <td className="px-3 py-2 text-center font-bold text-red-600">{p.currentStock}</td>
+                      <td className="px-3 py-2 text-center font-bold text-red-600">
+                        {p.currentStock}
+                      </td>
                       <td className="px-3 py-2 text-center text-slate-500">{p.minStockAlert}</td>
                       <td className="px-3 py-2 text-right font-mono">{formatMoney(p.unitPrice)}</td>
                     </tr>

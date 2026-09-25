@@ -1,5 +1,5 @@
 import { CheckCircle2, ClipboardPlus, Download, Search, XCircle } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import apiClient from "../api/client";
@@ -10,14 +10,16 @@ import { EmptyState, ErrorState, LoadingState } from "../components/States";
 import { useAuth } from "../context/AuthContext";
 import { getApiErrorMessage } from "../utils/errors";
 import { formatDate, formatMoney } from "../utils/format";
+import { ROLES, CHALLAN_STATUSES } from "../constants/enums";
+import { PAGE_SIZE } from "../constants/app";
 
 function canWriteChallans(role) {
-  return ["ADMIN", "SALES"].includes(role);
+  return [ROLES.ADMIN, ROLES.SALES].includes(role);
 }
 
 function statusBadge(status) {
-  if (status === "CONFIRMED") return "border-teal-200 bg-teal-50 text-workgreen";
-  if (status === "CANCELLED") return "border-red-200 bg-red-50 text-workred";
+  if (status === CHALLAN_STATUSES.CONFIRMED) return "border-teal-200 bg-teal-50 text-workgreen";
+  if (status === CHALLAN_STATUSES.CANCELLED) return "border-red-200 bg-red-50 text-workred";
   return "border-amber-200 bg-amber-50 text-workamber";
 }
 
@@ -77,10 +79,22 @@ function NewChallanModal({ customers, products, onClose, onCreated }) {
 
   return (
     <Modal title="New challan" onClose={onClose}>
-      {error && <div className="mb-4 border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-workred" style={{ borderRadius: 6 }}>{error}</div>}
+      {error && (
+        <div
+          className="mb-4 border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-workred"
+          style={{ borderRadius: 6 }}
+        >
+          {error}
+        </div>
+      )}
       <div className="grid gap-4">
         <FormField label="Customer">
-          <select className="control" value={customerId} onChange={(event) => setCustomerId(event.target.value)} required>
+          <select
+            className="control"
+            value={customerId}
+            onChange={(event) => setCustomerId(event.target.value)}
+            required
+          >
             <option value="">Select customer</option>
             {customers.map((customer) => (
               <option key={customer.id} value={customer.id}>
@@ -94,7 +108,12 @@ function NewChallanModal({ customers, products, onClose, onCreated }) {
           {lines.map((line, index) => (
             <div className="grid gap-3 md:grid-cols-[1fr_120px_auto]" key={index}>
               <FormField label={`Product ${index + 1}`}>
-                <select className="control" value={line.productId} onChange={(event) => updateLine(index, { productId: event.target.value })} required>
+                <select
+                  className="control"
+                  value={line.productId}
+                  onChange={(event) => updateLine(index, { productId: event.target.value })}
+                  required
+                >
                   <option value="">Select product</option>
                   {products.map((product) => (
                     <option key={product.id} value={product.id}>
@@ -104,24 +123,50 @@ function NewChallanModal({ customers, products, onClose, onCreated }) {
                 </select>
               </FormField>
               <FormField label="Qty">
-                <input className="control" min="1" type="number" value={line.quantity} onChange={(event) => updateLine(index, { quantity: event.target.value })} required />
+                <input
+                  className="control"
+                  min="1"
+                  type="number"
+                  value={line.quantity}
+                  onChange={(event) => updateLine(index, { quantity: event.target.value })}
+                  required
+                />
               </FormField>
-              <button className="secondary-button self-end" disabled={lines.length === 1} onClick={() => removeLine(index)} type="button">
+              <button
+                className="secondary-button self-end"
+                disabled={lines.length === 1}
+                onClick={() => removeLine(index)}
+                type="button"
+              >
                 Remove
               </button>
             </div>
           ))}
         </div>
 
-        <button className="secondary-button justify-self-start" onClick={() => setLines([...lines, emptyLine()])} type="button">
+        <button
+          className="secondary-button justify-self-start"
+          onClick={() => setLines([...lines, emptyLine()])}
+          type="button"
+        >
           Add line
         </button>
 
         <div className="flex flex-wrap gap-3 border-t border-slate-200 pt-4">
-          <button className="secondary-button" disabled={busy || !customerId} onClick={() => submit("draft")} type="button">
+          <button
+            className="secondary-button"
+            disabled={busy || !customerId}
+            onClick={() => submit("draft")}
+            type="button"
+          >
             {busy ? "Saving" : "Save draft"}
           </button>
-          <button className="primary-button" disabled={busy || !customerId} onClick={() => submit("confirm")} type="button">
+          <button
+            className="primary-button"
+            disabled={busy || !customerId}
+            onClick={() => submit("confirm")}
+            type="button"
+          >
             <CheckCircle2 size={18} />
             {busy ? "Confirming" : "Save and confirm"}
           </button>
@@ -138,7 +183,12 @@ export default function ChallansPage() {
   const canWrite = canWriteChallans(role);
   const [challans, setChallans] = useState([]);
   const [detail, setDetail] = useState(null);
-  const [meta, setMeta] = useState({ total: 0, page: 1, pageSize: 20, totalPages: 0 });
+  const [meta, setMeta] = useState({
+    total: 0,
+    page: 1,
+    pageSize: PAGE_SIZE.DEFAULT,
+    totalPages: 0
+  });
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("");
   const [customers, setCustomers] = useState([]);
@@ -151,11 +201,6 @@ export default function ChallansPage() {
   const [newModalOpen, setNewModalOpen] = useState(false);
   const selectedId = id ? Number(id) : null;
 
-  const selectedFromList = useMemo(
-    () => challans.find((challan) => challan.id === selectedId),
-    [challans, selectedId]
-  );
-
   async function loadList(nextPage = page) {
     setLoading(true);
     setError("");
@@ -164,7 +209,7 @@ export default function ChallansPage() {
       const response = await apiClient.get("/challans", {
         params: {
           page: nextPage,
-          pageSize: 20,
+          pageSize: PAGE_SIZE.DEFAULT,
           status: status || undefined
         }
       });
@@ -179,8 +224,8 @@ export default function ChallansPage() {
 
   async function loadLookups() {
     const [customersResponse, productsResponse] = await Promise.all([
-      apiClient.get("/customers?page=1&pageSize=100"),
-      apiClient.get("/products?page=1&pageSize=100")
+      apiClient.get("/customers", { params: { page: 1, pageSize: PAGE_SIZE.LOOKUP } }),
+      apiClient.get("/products", { params: { page: 1, pageSize: PAGE_SIZE.LOOKUP } })
     ]);
     setCustomers(customersResponse.data.items);
     setProducts(productsResponse.data.items);
@@ -298,14 +343,28 @@ export default function ChallansPage() {
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_460px]">
         <section className="grid content-start gap-4">
-          <form className="panel grid gap-3 p-4 md:grid-cols-[220px_auto]" onSubmit={(event) => event.preventDefault()}>
-            <select className="control" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
+          <form
+            className="panel grid gap-3 p-4 md:grid-cols-[220px_auto]"
+            onSubmit={(event) => event.preventDefault()}
+          >
+            <select
+              className="control"
+              value={status}
+              onChange={(event) => {
+                setStatus(event.target.value);
+                setPage(1);
+              }}
+            >
               <option value="">All statuses</option>
-              <option value="DRAFT">DRAFT</option>
-              <option value="CONFIRMED">CONFIRMED</option>
-              <option value="CANCELLED">CANCELLED</option>
+              <option value={CHALLAN_STATUSES.DRAFT}>{CHALLAN_STATUSES.DRAFT}</option>
+              <option value={CHALLAN_STATUSES.CONFIRMED}>{CHALLAN_STATUSES.CONFIRMED}</option>
+              <option value={CHALLAN_STATUSES.CANCELLED}>{CHALLAN_STATUSES.CANCELLED}</option>
             </select>
-            <button className="secondary-button justify-self-start" onClick={() => loadList(1)} type="button">
+            <button
+              className="secondary-button justify-self-start"
+              onClick={() => loadList(1)}
+              type="button"
+            >
               <Search size={18} />
               Refresh
             </button>
@@ -329,11 +388,19 @@ export default function ChallansPage() {
                   </thead>
                   <tbody>
                     {challans.map((challan) => (
-                      <tr className={`cursor-pointer hover:bg-slate-50 ${selectedId === challan.id ? "bg-teal-50" : ""}`} key={challan.id} onClick={() => navigate(`/challans/${challan.id}`)}>
+                      <tr
+                        className={`cursor-pointer hover:bg-slate-50 ${selectedId === challan.id ? "bg-teal-50" : ""}`}
+                        key={challan.id}
+                        onClick={() => navigate(`/challans/${challan.id}`)}
+                      >
                         <td className="table-cell font-semibold">{challan.challanNumber}</td>
-                        <td className="table-cell">{challan.customer?.name || challan.customerId}</td>
                         <td className="table-cell">
-                          <span className={`inline-flex h-7 items-center border px-2 text-xs font-semibold ${statusBadge(challan.status)}`}>
+                          {challan.customer?.name || challan.customerId}
+                        </td>
+                        <td className="table-cell">
+                          <span
+                            className={`inline-flex h-7 items-center border px-2 text-xs font-semibold ${statusBadge(challan.status)}`}
+                          >
                             {challan.status}
                           </span>
                         </td>
@@ -354,16 +421,30 @@ export default function ChallansPage() {
             <h3 className="font-bold text-ink">Detail</h3>
           </div>
           {!selectedId && <div className="p-5 text-sm text-slate-500">Select a challan</div>}
-          {selectedId && detailLoading && <div className="p-5"><LoadingState label="Loading detail" /></div>}
-          {selectedId && actionError && <div className="p-4"><ErrorState message={actionError} /></div>}
+          {selectedId && detailLoading && (
+            <div className="p-5">
+              <LoadingState label="Loading detail" />
+            </div>
+          )}
+          {selectedId && actionError && (
+            <div className="p-4">
+              <ErrorState message={actionError} />
+            </div>
+          )}
           {selectedId && !detailLoading && detail && (
             <div className="grid gap-4 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-lg font-bold tracking-normal text-ink">{detail.challanNumber}</p>
-                  <p className="mt-1 text-sm text-slate-500">{detail.customer?.name || detail.customerId}</p>
+                  <p className="text-lg font-bold tracking-normal text-ink">
+                    {detail.challanNumber}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {detail.customer?.name || detail.customerId}
+                  </p>
                 </div>
-                <span className={`inline-flex h-7 items-center border px-2 text-xs font-semibold ${statusBadge(detail.status)}`}>
+                <span
+                  className={`inline-flex h-7 items-center border px-2 text-xs font-semibold ${statusBadge(detail.status)}`}
+                >
                   {detail.status}
                 </span>
               </div>
@@ -396,19 +477,27 @@ export default function ChallansPage() {
                 </table>
               </div>
 
-              {canWrite && detail.status === "DRAFT" && (
+              {canWrite && detail.status === CHALLAN_STATUSES.DRAFT && (
                 <div className="flex flex-wrap gap-2 border-t border-slate-200 pt-4">
-                  <button className="primary-button" onClick={() => confirmChallan(detail.id)} type="button">
+                  <button
+                    className="primary-button"
+                    onClick={() => confirmChallan(detail.id)}
+                    type="button"
+                  >
                     <CheckCircle2 size={18} />
                     Confirm
                   </button>
-                  <button className="danger-button" onClick={() => cancelChallan(detail.id)} type="button">
+                  <button
+                    className="danger-button"
+                    onClick={() => cancelChallan(detail.id)}
+                    type="button"
+                  >
                     <XCircle size={18} />
                     Cancel
                   </button>
                 </div>
               )}
-              {detail.status === "CONFIRMED" && (
+              {detail.status === CHALLAN_STATUSES.CONFIRMED && (
                 <div className="flex flex-wrap gap-2 border-t border-slate-200 pt-4">
                   <button
                     className="secondary-button"
@@ -420,7 +509,11 @@ export default function ChallansPage() {
                     {downloadingInvoice ? "Downloading..." : "Download Invoice"}
                   </button>
                   {canWrite && (
-                    <button className="danger-button" onClick={() => cancelChallan(detail.id)} type="button">
+                    <button
+                      className="danger-button"
+                      onClick={() => cancelChallan(detail.id)}
+                      type="button"
+                    >
                       <XCircle size={18} />
                       Cancel and restore stock
                     </button>

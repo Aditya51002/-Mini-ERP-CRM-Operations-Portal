@@ -1,11 +1,12 @@
 import { createContext, useContext, useMemo, useState } from "react";
 
 import apiClient from "../api/client";
+import { API_PATHS, STORAGE_KEYS } from "../constants/app";
 
 const AuthContext = createContext(null);
 
 function readStoredUser() {
-  const rawUser = localStorage.getItem("mini_erp_user");
+  const rawUser = localStorage.getItem(STORAGE_KEYS.USER);
 
   if (!rawUser) {
     return null;
@@ -13,26 +14,26 @@ function readStoredUser() {
 
   try {
     return JSON.parse(rawUser);
-  } catch (error) {
-    localStorage.removeItem("mini_erp_user");
+  } catch {
+    localStorage.removeItem(STORAGE_KEYS.USER);
     return null;
   }
 }
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => localStorage.getItem("mini_erp_token"));
+  const [token, setToken] = useState(() => localStorage.getItem(STORAGE_KEYS.TOKEN));
   const [user, setUser] = useState(() => readStoredUser());
 
   async function login(email, password) {
-    const response = await apiClient.post("/auth/login", {
+    const response = await apiClient.post(API_PATHS.AUTH_LOGIN, {
       email,
       password
     });
     const nextToken = response.data.token;
     const nextUser = response.data.user;
 
-    localStorage.setItem("mini_erp_token", nextToken);
-    localStorage.setItem("mini_erp_user", JSON.stringify(nextUser));
+    localStorage.setItem(STORAGE_KEYS.TOKEN, nextToken);
+    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(nextUser));
     setToken(nextToken);
     setUser(nextUser);
 
@@ -40,8 +41,8 @@ export function AuthProvider({ children }) {
   }
 
   function logout() {
-    localStorage.removeItem("mini_erp_token");
-    localStorage.removeItem("mini_erp_user");
+    localStorage.removeItem(STORAGE_KEYS.TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.USER);
     setToken(null);
     setUser(null);
   }

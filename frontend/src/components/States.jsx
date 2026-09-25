@@ -20,9 +20,5 @@ export function ErrorState({ message, onRetry }) {
 }
 
 export function EmptyState({ label }) {
-  return (
-    <div className="panel p-6 text-sm text-slate-500">
-      {label}
-    </div>
-  );
+  return <div className="panel p-6 text-sm text-slate-500">{label}</div>;
 }

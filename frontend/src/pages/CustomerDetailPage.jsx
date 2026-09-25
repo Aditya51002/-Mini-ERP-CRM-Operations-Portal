@@ -1,4 +1,4 @@
-import { ArrowLeft, Edit, Save } from "lucide-react";
+import { ArrowLeft, Edit, Save, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
@@ -8,9 +8,10 @@ import { ErrorState, LoadingState } from "../components/States";
 import { useAuth } from "../context/AuthContext";
 import { getApiErrorMessage } from "../utils/errors";
 import { formatDate, formatDateInput } from "../utils/format";
+import { ROLES } from "../constants/enums";
 
 function canWriteCustomers(role) {
-  return ["ADMIN", "SALES"].includes(role);
+  return [ROLES.ADMIN, ROLES.SALES].includes(role);
 }
 
 function toForm(customer) {
@@ -53,6 +54,9 @@ export default function CustomerDetailPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
+  const [summary, setSummary] = useState("");
+  const [summaryError, setSummaryError] = useState("");
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   async function loadCustomer() {
     setLoading(true);
@@ -105,6 +109,20 @@ export default function CustomerDetailPage() {
     }
   }
 
+  async function generateSummary() {
+    setSummaryLoading(true);
+    setSummaryError("");
+    try {
+      const response = await apiClient.post(`/customers/${id}/summary`);
+      setSummary(response.data.summary);
+    } catch (err) {
+      setSummary("");
+      setSummaryError(getApiErrorMessage(err, "Summary unavailable"));
+    } finally {
+      setSummaryLoading(false);
+    }
+  }
+
   if (loading) {
     return <LoadingState label="Loading customer" />;
   }
@@ -117,7 +135,10 @@ export default function CustomerDetailPage() {
     <div className="grid gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <Link className="inline-flex items-center gap-2 text-sm font-semibold text-workgreen" to="/customers">
+          <Link
+            className="inline-flex items-center gap-2 text-sm font-semibold text-workgreen"
+            to="/customers"
+          >
             <ArrowLeft size={16} />
             Customers
           </Link>
@@ -134,36 +155,94 @@ export default function CustomerDetailPage() {
       {actionError && <ErrorState message={actionError} />}
 
       <section className="panel p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="font-bold text-ink">Relationship summary</h3>
+          {canWrite && (
+            <button
+              className="secondary-button"
+              disabled={summaryLoading}
+              onClick={generateSummary}
+              type="button"
+            >
+              <Sparkles size={16} />
+              {summaryLoading ? "Generating" : "Generate summary"}
+            </button>
+          )}
+        </div>
+        {summary && (
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">{summary}</p>
+        )}
+        {summaryError && (
+          <p className="mt-3 text-sm text-workred">Summary unavailable: {summaryError}</p>
+        )}
+      </section>
+
+      <section className="panel p-5">
         {editing ? (
           <form className="grid gap-4" onSubmit={saveCustomer}>
             <div className="grid gap-4 md:grid-cols-2">
               <FormField label="Name">
-                <input className="control" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required />
+                <input
+                  className="control"
+                  value={form.name}
+                  onChange={(event) => setForm({ ...form, name: event.target.value })}
+                  required
+                />
               </FormField>
               <FormField label="Mobile">
-                <input className="control" value={form.mobile} onChange={(event) => setForm({ ...form, mobile: event.target.value })} />
+                <input
+                  className="control"
+                  value={form.mobile}
+                  onChange={(event) => setForm({ ...form, mobile: event.target.value })}
+                />
               </FormField>
               <FormField label="Email">
-                <input className="control" type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
+                <input
+                  className="control"
+                  type="email"
+                  value={form.email}
+                  onChange={(event) => setForm({ ...form, email: event.target.value })}
+                />
               </FormField>
               <FormField label="Business name">
-                <input className="control" value={form.businessName} onChange={(event) => setForm({ ...form, businessName: event.target.value })} />
+                <input
+                  className="control"
+                  value={form.businessName}
+                  onChange={(event) => setForm({ ...form, businessName: event.target.value })}
+                />
               </FormField>
               <FormField label="GST number">
-                <input className="control" value={form.gstNumber} onChange={(event) => setForm({ ...form, gstNumber: event.target.value })} />
+                <input
+                  className="control"
+                  value={form.gstNumber}
+                  onChange={(event) => setForm({ ...form, gstNumber: event.target.value })}
+                />
               </FormField>
               <FormField label="Follow-up date">
-                <input className="control" type="date" value={form.followUpDate} onChange={(event) => setForm({ ...form, followUpDate: event.target.value })} />
+                <input
+                  className="control"
+                  type="date"
+                  value={form.followUpDate}
+                  onChange={(event) => setForm({ ...form, followUpDate: event.target.value })}
+                />
               </FormField>
               <FormField label="Type">
-                <select className="control" value={form.customerType} onChange={(event) => setForm({ ...form, customerType: event.target.value })}>
+                <select
+                  className="control"
+                  value={form.customerType}
+                  onChange={(event) => setForm({ ...form, customerType: event.target.value })}
+                >
                   <option value="RETAIL">RETAIL</option>
                   <option value="WHOLESALE">WHOLESALE</option>
                   <option value="DISTRIBUTOR">DISTRIBUTOR</option>
                 </select>
               </FormField>
               <FormField label="Status">
-                <select className="control" value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>
+                <select
+                  className="control"
+                  value={form.status}
+                  onChange={(event) => setForm({ ...form, status: event.target.value })}
+                >
                   <option value="LEAD">LEAD</option>
                   <option value="ACTIVE">ACTIVE</option>
                   <option value="INACTIVE">INACTIVE</option>
@@ -171,7 +250,11 @@ export default function CustomerDetailPage() {
               </FormField>
             </div>
             <FormField label="Address">
-              <textarea className="control min-h-24 py-2" value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} />
+              <textarea
+                className="control min-h-24 py-2"
+                value={form.address}
+                onChange={(event) => setForm({ ...form, address: event.target.value })}
+              />
             </FormField>
             <button className="primary-button justify-self-start" disabled={saving} type="submit">
               <Save size={18} />
@@ -196,7 +279,13 @@ export default function CustomerDetailPage() {
         <h3 className="font-bold text-ink">Follow-up notes</h3>
         {canWrite && (
           <form className="mt-4 grid gap-3" onSubmit={addNote}>
-            <textarea className="control min-h-24 py-2" placeholder="Add a note" value={note} onChange={(event) => setNote(event.target.value)} required />
+            <textarea
+              className="control min-h-24 py-2"
+              placeholder="Add a note"
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              required
+            />
             <button className="primary-button justify-self-start" disabled={saving} type="submit">
               Add note
             </button>
@@ -205,7 +294,11 @@ export default function CustomerDetailPage() {
         <div className="mt-5 grid gap-3">
           {customer.notes.length === 0 && <p className="text-sm text-slate-500">No notes yet</p>}
           {customer.notes.map((item) => (
-            <article className="border border-slate-200 bg-slate-50 p-3" key={item.id} style={{ borderRadius: 6 }}>
+            <article
+              className="border border-slate-200 bg-slate-50 p-3"
+              key={item.id}
+              style={{ borderRadius: 6 }}
+            >
               <p className="text-sm text-slate-800">{item.note}</p>
               <p className="mt-2 text-xs font-medium text-slate-500">
                 {item.author.name} · {formatDate(item.createdAt)}
@@ -231,7 +324,11 @@ export default function CustomerDetailPage() {
             </thead>
             <tbody>
               {customer.challanHistory.length === 0 && (
-                <tr><td className="table-cell text-slate-500" colSpan={4}>No challans yet</td></tr>
+                <tr>
+                  <td className="table-cell text-slate-500" colSpan={4}>
+                    No challans yet
+                  </td>
+                </tr>
               )}
               {customer.challanHistory.map((challan) => (
                 <tr key={challan.id}>

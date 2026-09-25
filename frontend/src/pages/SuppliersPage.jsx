@@ -1,4 +1,4 @@
-import { Building2, Plus, Search, Truck } from "lucide-react";
+import { Plus, Search, Truck } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import apiClient from "../api/client";
@@ -8,9 +8,11 @@ import Pagination from "../components/Pagination";
 import { EmptyState, ErrorState, LoadingState } from "../components/States";
 import { useAuth } from "../context/AuthContext";
 import { getApiErrorMessage } from "../utils/errors";
+import { ROLES } from "../constants/enums";
+import { PAGE_SIZE } from "../constants/app";
 
 function canWriteSuppliers(role) {
-  return ["ADMIN", "WAREHOUSE"].includes(role);
+  return [ROLES.ADMIN, ROLES.WAREHOUSE].includes(role);
 }
 
 function SupplierModal({ supplier, onClose, onSaved }) {
@@ -47,7 +49,11 @@ function SupplierModal({ supplier, onClose, onSaved }) {
 
   return (
     <Modal onClose={onClose} title={supplier ? "Edit Supplier" : "Add New Supplier"}>
-      {error && <div className="mb-4 rounded bg-red-50 p-3 text-sm text-red-600 border border-red-200">{error}</div>}
+      {error && (
+        <div className="mb-4 rounded bg-red-50 p-3 text-sm text-red-600 border border-red-200">
+          {error}
+        </div>
+      )}
 
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -144,7 +150,12 @@ function SupplierModal({ supplier, onClose, onSaved }) {
 export default function SuppliersPage() {
   const { role } = useAuth();
   const [suppliers, setSuppliers] = useState([]);
-  const [pagination, setPagination] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: PAGE_SIZE.COMPACT,
+    total: 0,
+    totalPages: 1
+  });
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -157,7 +168,7 @@ export default function SuppliersPage() {
 
     try {
       const res = await apiClient.get("/suppliers", {
-        params: { page, pageSize: 10, search: searchQuery }
+        params: { page, pageSize: PAGE_SIZE.COMPACT, search: searchQuery }
       });
       setSuppliers(res.data.data);
       setPagination(res.data.pagination);

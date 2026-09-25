@@ -1,4 +1,4 @@
-import { CheckCircle2, PackageCheck, Plus, Search, ShoppingBag, XCircle } from "lucide-react";
+import { PackageCheck, Plus, Search, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import apiClient from "../api/client";
@@ -8,10 +8,12 @@ import Pagination from "../components/Pagination";
 import { EmptyState, ErrorState, LoadingState } from "../components/States";
 import { useAuth } from "../context/AuthContext";
 import { getApiErrorMessage } from "../utils/errors";
+import { ROLES } from "../constants/enums";
+import { PAGE_SIZE } from "../constants/app";
 import { formatDate, formatMoney } from "../utils/format";
 
 function canWritePOs(role) {
-  return ["ADMIN", "WAREHOUSE"].includes(role);
+  return [ROLES.ADMIN, ROLES.WAREHOUSE].includes(role);
 }
 
 function poStatusBadge(status) {
@@ -82,7 +84,11 @@ function NewPoModal({ suppliers, products, onClose, onCreated }) {
 
   return (
     <Modal onClose={onClose} title="Create Purchase Order">
-      {error && <div className="mb-4 rounded bg-red-50 p-3 text-sm text-red-600 border border-red-200">{error}</div>}
+      {error && (
+        <div className="mb-4 rounded bg-red-50 p-3 text-sm text-red-600 border border-red-200">
+          {error}
+        </div>
+      )}
 
       <form className="space-y-4" onSubmit={handleSubmit}>
         <FormField label="Select Supplier *">
@@ -102,10 +108,15 @@ function NewPoModal({ suppliers, products, onClose, onCreated }) {
         </FormField>
 
         <div>
-          <label className="mb-2 block text-xs font-semibold uppercase text-slate-500">Order Items *</label>
+          <label className="mb-2 block text-xs font-semibold uppercase text-slate-500">
+            Order Items *
+          </label>
           <div className="space-y-3">
             {items.map((line, idx) => (
-              <div className="flex flex-wrap items-center gap-2 rounded border border-slate-200 p-2" key={idx}>
+              <div
+                className="flex flex-wrap items-center gap-2 rounded border border-slate-200 p-2"
+                key={idx}
+              >
                 <select
                   className="text-input flex-1 min-w-[180px]"
                   onChange={(e) => updateItem(idx, "productId", e.target.value)}
@@ -154,7 +165,11 @@ function NewPoModal({ suppliers, products, onClose, onCreated }) {
             ))}
           </div>
 
-          <button className="mt-2 text-xs font-semibold text-teal-600 hover:text-teal-800" onClick={addItemLine} type="button">
+          <button
+            className="mt-2 text-xs font-semibold text-teal-600 hover:text-teal-800"
+            onClick={addItemLine}
+            type="button"
+          >
             + Add Another Line Item
           </button>
         </div>
@@ -192,7 +207,12 @@ export default function PurchaseOrdersPage() {
   const [orders, setOrders] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
-  const [pagination, setPagination] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: PAGE_SIZE.COMPACT,
+    total: 0,
+    totalPages: 1
+  });
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(true);
@@ -206,7 +226,12 @@ export default function PurchaseOrdersPage() {
 
     try {
       const res = await apiClient.get("/purchase-orders", {
-        params: { page, pageSize: 10, search: searchQuery, status: status || undefined }
+        params: {
+          page,
+          pageSize: PAGE_SIZE.COMPACT,
+          search: searchQuery,
+          status: status || undefined
+        }
       });
       setOrders(res.data.data);
       setPagination(res.data.pagination);
@@ -220,8 +245,8 @@ export default function PurchaseOrdersPage() {
   async function fetchLookupData() {
     try {
       const [supRes, prodRes] = await Promise.all([
-        apiClient.get("/suppliers", { params: { pageSize: 100 } }),
-        apiClient.get("/products", { params: { pageSize: 100 } })
+        apiClient.get("/suppliers", { params: { pageSize: PAGE_SIZE.LOOKUP } }),
+        apiClient.get("/products", { params: { pageSize: PAGE_SIZE.LOOKUP } })
       ]);
       setSuppliers(supRes.data.data);
       setProducts(prodRes.data.data);
@@ -248,7 +273,11 @@ export default function PurchaseOrdersPage() {
   }
 
   async function handleReceivePo(id) {
-    if (!confirm("Are you sure you want to receive this PO? This will automatically add items into inventory stock.")) {
+    if (
+      !confirm(
+        "Are you sure you want to receive this PO? This will automatically add items into inventory stock."
+      )
+    ) {
       return;
     }
     setBusyPoId(id);
@@ -267,7 +296,9 @@ export default function PurchaseOrdersPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-ink">Purchase Orders & Goods Receipt</h1>
-          <p className="text-sm text-slate-500">Inbound procurement supply chain and automatic inventory stock updates</p>
+          <p className="text-sm text-slate-500">
+            Inbound procurement supply chain and automatic inventory stock updates
+          </p>
         </div>
 
         {canWritePOs(role) && (
@@ -342,7 +373,9 @@ export default function PurchaseOrdersPage() {
                     <div className="text-xs text-slate-500 font-mono">{po.supplier.code}</div>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold ${poStatusBadge(po.status)}`}>
+                    <span
+                      className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold ${poStatusBadge(po.status)}`}
+                    >
                       {po.status}
                     </span>
                   </td>

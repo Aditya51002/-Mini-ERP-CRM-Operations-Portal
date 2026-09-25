@@ -10,43 +10,44 @@ import {
 import { NavLink, Outlet } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
+import { ROLES } from "../constants/enums";
 
 const navItems = [
   {
     label: "Dashboard",
     path: "/dashboard",
     icon: LayoutDashboard,
-    roles: ["ADMIN", "SALES", "WAREHOUSE", "ACCOUNTS"]
+    roles: Object.values(ROLES)
   },
   {
     label: "Customers",
     path: "/customers",
     icon: Users,
-    roles: ["ADMIN", "SALES", "WAREHOUSE", "ACCOUNTS"]
+    roles: Object.values(ROLES)
   },
   {
     label: "Products",
     path: "/products",
     icon: Package,
-    roles: ["ADMIN", "SALES", "WAREHOUSE", "ACCOUNTS"]
+    roles: Object.values(ROLES)
   },
   {
     label: "Suppliers",
     path: "/suppliers",
     icon: Building2,
-    roles: ["ADMIN", "SALES", "WAREHOUSE", "ACCOUNTS"]
+    roles: Object.values(ROLES)
   },
   {
     label: "Purchase Orders",
     path: "/purchase-orders",
     icon: ShoppingBag,
-    roles: ["ADMIN", "SALES", "WAREHOUSE", "ACCOUNTS"]
+    roles: Object.values(ROLES)
   },
   {
     label: "Challans",
     path: "/challans",
     icon: ClipboardList,
-    roles: ["ADMIN", "SALES", "WAREHOUSE", "ACCOUNTS"]
+    roles: Object.values(ROLES)
   }
 ];
 
