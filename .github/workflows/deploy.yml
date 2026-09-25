@@ -169,13 +169,22 @@ jobs:
         shell: bash
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
           set -e
+          EC2_HOST_VALUE="$EC2_HOST"
+          EC2_USER_VALUE="${EC2_USER:-ubuntu}"
+          if [[ "$EC2_HOST_VALUE" == *"@"* ]]; then
+            if [ -z "${EC2_USER:-}" ]; then
+              EC2_USER_VALUE="${EC2_HOST_VALUE%@*}"
+            fi
+            EC2_HOST_VALUE="${EC2_HOST_VALUE#*@}"
+          fi
           mkdir -p ~/.ssh
           printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/ec2_key
           chmod 600 ~/.ssh/ec2_key
-          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+          ssh-keyscan -H "$EC2_HOST_VALUE" >> ~/.ssh/known_hosts
 
       - name: Pull images and restart compose stack
         if: steps.ec2-secrets.outputs.can_deploy == 'true'
@@ -188,8 +197,15 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           set -e
+          EC2_HOST_VALUE="$EC2_HOST"
           EC2_USER_VALUE="${EC2_USER:-ubuntu}"
-          SSH_TARGET="${EC2_USER_VALUE}@${EC2_HOST}"
+          if [[ "$EC2_HOST_VALUE" == *"@"* ]]; then
+            if [ -z "${EC2_USER:-}" ]; then
+              EC2_USER_VALUE="${EC2_HOST_VALUE%@*}"
+            fi
+            EC2_HOST_VALUE="${EC2_HOST_VALUE#*@}"
+          fi
+          SSH_TARGET="${EC2_USER_VALUE}@${EC2_HOST_VALUE}"
 
           printf '%s' "$DOCKERHUB_TOKEN" |
             ssh -i ~/.ssh/ec2_key "$SSH_TARGET" \
