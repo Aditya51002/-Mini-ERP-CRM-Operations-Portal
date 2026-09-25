@@ -81,7 +81,7 @@ model CustomerNote {
   note        String
   createdById Int
   createdAt   DateTime  @default(now())
-  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
   createdBy   User      @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([customerId])
@@ -197,4 +197,3 @@ model PurchaseOrderItem {
   @@index([poId])
   @@index([productId])
 }
-
