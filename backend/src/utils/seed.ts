@@ -1,36 +1,37 @@
 import "dotenv/config";
 
-import type { Role } from "@prisma/client";
+import type { Role as RoleType } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 import prisma from "../config/db";
+import { Role } from "../constants/enums";
 
 const password = "Password123!";
 
 const users: Array<{
   name: string;
   email: string;
-  role: Role;
+  role: RoleType;
 }> = [
   {
     name: "Admin User",
     email: "admin@erp.test",
-    role: "ADMIN"
+    role: Role.ADMIN
   },
   {
     name: "Sales User",
     email: "sales@erp.test",
-    role: "SALES"
+    role: Role.SALES
   },
   {
     name: "Warehouse User",
     email: "warehouse@erp.test",
-    role: "WAREHOUSE"
+    role: Role.WAREHOUSE
   },
   {
     name: "Accounts User",
     email: "accounts@erp.test",
-    role: "ACCOUNTS"
+    role: Role.ACCOUNTS
   }
 ];
 

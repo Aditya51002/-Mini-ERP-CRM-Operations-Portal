@@ -1,23 +1,27 @@
-import type { Prisma, Product, Role, StockMovement } from "@prisma/client";
+import type { Prisma, Product, Role as RoleType, StockMovement } from "@prisma/client";
 import type { Request } from "express";
 import express from "express";
 import { z } from "zod";
 
 import prisma from "../../config/db";
+import { appConfig } from "../../config/appConfig";
+import { HTTP_STATUS } from "../../constants/httpStatus";
+import { Role, StockMovementType } from "../../constants/enums";
+import { ERROR_MESSAGES } from "../../constants/messages";
 import { requireAuth, requireRole } from "../../middleware/auth";
 import { asyncHandler } from "../../middleware/errorHandler";
 import AppError from "../../utils/AppError";
 
 const router = express.Router();
 
-const writeRoles: Role[] = ["ADMIN", "WAREHOUSE"];
+const writeRoles: RoleType[] = [Role.ADMIN, Role.WAREHOUSE];
 
 type MovementWithCreatedBy = StockMovement & {
   createdBy?: {
     id: number;
     name: string;
     email: string;
-    role: Role;
+    role: RoleType;
   };
 };
 
@@ -50,16 +54,15 @@ const createProductSchema = z.object({
   location: optionalTrimmedString
 });
 
-const updateProductSchema = createProductSchema.partial().refine(
-  (value) => Object.keys(value).length > 0,
-  {
+const updateProductSchema = createProductSchema
+  .partial()
+  .refine((value) => Object.keys(value).length > 0, {
     message: "At least one field is required"
-  }
-);
+  });
 
 const stockAdjustmentSchema = z.object({
   quantity: z.coerce.number().int().positive(),
-  movementType: z.enum(["IN", "OUT"]),
+  movementType: z.nativeEnum(StockMovementType),
   reason: z.string().trim().min(1)
 });
 
@@ -69,7 +72,7 @@ function parseProductId(value: string): number {
   const id = Number(value);
 
   if (!Number.isInteger(id) || id <= 0) {
-    throw new AppError("Product not found", 404);
+    throw new AppError(ERROR_MESSAGES.PRODUCT_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
   }
 
   return id;
@@ -81,8 +84,9 @@ function parsePagination(query: Request["query"]): {
   skip: number;
 } {
   const page = Math.max(Number.parseInt(String(query.page), 10) || 1, 1);
-  const requestedPageSize = Number.parseInt(String(query.pageSize), 10) || 20;
-  const pageSize = Math.min(Math.max(requestedPageSize, 1), 100);
+  const requestedPageSize =
+    Number.parseInt(String(query.pageSize), 10) || appConfig.defaultPageSize;
+  const pageSize = Math.min(Math.max(requestedPageSize, 1), appConfig.maxPageSize);
 
   return {
     page,
@@ -163,7 +167,7 @@ async function findProductOrThrow(id: number): Promise<ProductDetail> {
     include: {
       stockMovements: {
         orderBy: { createdAt: "desc" },
-        take: 10,
+        take: appConfig.productMovementLimit,
         include: {
           createdBy: {
             select: {
@@ -179,7 +183,7 @@ async function findProductOrThrow(id: number): Promise<ProductDetail> {
   });
 
   if (!product) {
-    throw new AppError("Product not found", 404);
+    throw new AppError(ERROR_MESSAGES.PRODUCT_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
   }
 
   return product;
@@ -245,7 +249,7 @@ router.put(
     });
 
     if (!existing) {
-      throw new AppError("Product not found", 404);
+      throw new AppError(ERROR_MESSAGES.PRODUCT_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
     }
 
     const product = await prisma.product.update({
@@ -269,7 +273,7 @@ router.delete(
     });
 
     if (!existing) {
-      throw new AppError("Product not found", 404);
+      throw new AppError(ERROR_MESSAGES.PRODUCT_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
     }
 
     await prisma.product.delete({ where: { id } });
@@ -296,13 +300,13 @@ router.post(
       const lockedProduct = lockedProducts[0];
 
       if (!lockedProduct) {
-        throw new AppError("Product not found", 404);
+        throw new AppError(ERROR_MESSAGES.PRODUCT_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
       }
 
       const currentStock = Number(lockedProduct.currentStock);
 
-      if (data.movementType === "OUT" && currentStock < data.quantity) {
-        throw new AppError("Insufficient stock for OUT movement", 422, {
+      if (data.movementType === StockMovementType.OUT && currentStock < data.quantity) {
+        throw new AppError(ERROR_MESSAGES.PRODUCT_OUT_STOCK, HTTP_STATUS.UNPROCESSABLE_ENTITY, {
           productId: id,
           currentStock,
           requestedQuantity: data.quantity
@@ -313,7 +317,7 @@ router.post(
         where: { id },
         data: {
           currentStock:
-            data.movementType === "IN"
+            data.movementType === StockMovementType.IN
               ? { increment: data.quantity }
               : { decrement: data.quantity }
         }
@@ -344,7 +348,7 @@ router.post(
       });
 
       if (!product) {
-        throw new AppError("Product not found", 404);
+        throw new AppError(ERROR_MESSAGES.PRODUCT_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
       }
 
       return {
@@ -372,7 +376,7 @@ router.get(
     });
 
     if (!existing) {
-      throw new AppError("Product not found", 404);
+      throw new AppError(ERROR_MESSAGES.PRODUCT_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
     }
 
     const [items, total] = await prisma.$transaction([

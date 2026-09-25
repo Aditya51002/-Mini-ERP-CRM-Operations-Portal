@@ -1,22 +1,23 @@
-import type { Prisma, Role } from "@prisma/client";
+import type { Prisma, Role as RoleType } from "@prisma/client";
 import express from "express";
 import { z } from "zod";
 
 import prisma from "../../config/db";
+import { appConfig } from "../../config/appConfig";
+import { Role } from "../../constants/enums";
 import { requireAuth, requireRole } from "../../middleware/auth";
 import { asyncHandler } from "../../middleware/errorHandler";
 import AppError from "../../utils/AppError";
 
 const router = express.Router();
-const writeRoles: Role[] = ["ADMIN", "WAREHOUSE"];
+const writeRoles: RoleType[] = [Role.ADMIN, Role.WAREHOUSE];
 
-const optionalTrimmedString = z
-  .preprocess((value) => {
-    if (value === "" || value === null || value === undefined) {
-      return undefined;
-    }
-    return value;
-  }, z.string().trim().min(1).optional());
+const optionalTrimmedString = z.preprocess((value) => {
+  if (value === "" || value === null || value === undefined) {
+    return undefined;
+  }
+  return value;
+}, z.string().trim().min(1).optional());
 
 const createSupplierSchema = z.object({
   name: z.string().trim().min(1, "Supplier name is required"),
@@ -36,7 +37,10 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 10));
+    const pageSize = Math.min(
+      appConfig.maxPageSize,
+      Math.max(1, parseInt(req.query.pageSize as string) || appConfig.compactPageSize)
+    );
     const search = ((req.query.search as string) || "").trim();
 
     const where: Prisma.SupplierWhereInput = search
@@ -92,7 +96,7 @@ router.get(
       include: {
         purchaseOrders: {
           orderBy: { createdAt: "desc" },
-          take: 20,
+          take: appConfig.defaultPageSize,
           select: {
             id: true,
             poNumber: true,

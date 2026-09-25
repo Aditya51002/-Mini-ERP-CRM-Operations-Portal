@@ -1,14 +1,16 @@
-import type { Prisma, PurchaseOrderStatus, Role } from "@prisma/client";
+import type { Prisma, PurchaseOrderStatus, Role as RoleType } from "@prisma/client";
 import express from "express";
 import { z } from "zod";
 
 import prisma from "../../config/db";
+import { appConfig } from "../../config/appConfig";
+import { Role, StockMovementType } from "../../constants/enums";
 import { requireAuth, requireRole } from "../../middleware/auth";
 import { asyncHandler } from "../../middleware/errorHandler";
 import AppError from "../../utils/AppError";
 
 const router = express.Router();
-const writeRoles: Role[] = ["ADMIN", "WAREHOUSE"];
+const writeRoles: RoleType[] = [Role.ADMIN, Role.WAREHOUSE];
 
 const createPoItemSchema = z.object({
   productId: z.number().int().positive("Invalid product ID"),
@@ -35,7 +37,10 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 10));
+    const pageSize = Math.min(
+      appConfig.maxPageSize,
+      Math.max(1, parseInt(req.query.pageSize as string) || appConfig.compactPageSize)
+    );
     const search = ((req.query.search as string) || "").trim();
     const status = req.query.status as PurchaseOrderStatus | undefined;
 
@@ -246,7 +251,7 @@ router.post(
           data: {
             productId: item.productId,
             quantity: item.quantity,
-            movementType: "IN",
+            movementType: StockMovementType.IN,
             reason: `PO Receipt ${po.poNumber}`,
             createdById: req.user!.id
           }

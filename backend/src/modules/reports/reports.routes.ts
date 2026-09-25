@@ -62,7 +62,10 @@ router.get(
     ]);
 
     // Calculate Sales Revenue Trend over last 30 days
-    const dailyMap: Record<string, { date: string; revenue: number; quantity: number; count: number }> = {};
+    const dailyMap: Record<
+      string,
+      { date: string; revenue: number; quantity: number; count: number }
+    > = {};
     let totalRevenue = 0;
 
     // Initialize 30 days
@@ -92,7 +95,8 @@ router.get(
     const salesTrend = Object.values(dailyMap);
 
     // Top Customers by Revenue
-    const customerMap: Record<string, { customerName: string; revenue: number; orders: number }> = {};
+    const customerMap: Record<string, { customerName: string; revenue: number; orders: number }> =
+      {};
     for (const challan of confirmedChallans) {
       const name = challan.customer.businessName || challan.customer.name;
       const challanTotal = challan.items.reduce(
@@ -111,7 +115,8 @@ router.get(
       .slice(0, 5);
 
     // Inventory Valuation & Category Breakdown
-    const categoryMap: Record<string, { category: string; stockCount: number; valuation: number }> = {};
+    const categoryMap: Record<string, { category: string; stockCount: number; valuation: number }> =
+      {};
     let totalInventoryValuation = 0;
 
     for (const prod of allProducts) {

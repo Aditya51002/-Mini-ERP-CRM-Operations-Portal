@@ -3,6 +3,8 @@ import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { ZodError } from "zod";
 
 import AppError from "../utils/AppError";
+import { ERROR_MESSAGES } from "../constants/messages";
+import { HTTP_STATUS } from "../constants/httpStatus";
 
 type AsyncRouteHandler = (
   req: Request,
@@ -38,9 +40,9 @@ export default function errorHandler(
   }
 
   if (error instanceof ZodError) {
-    res.status(400).json({
+    res.status(HTTP_STATUS.BAD_REQUEST).json({
       error: {
-        message: "Validation failed",
+        message: ERROR_MESSAGES.VALIDATION_FAILED,
         details: error.flatten()
       }
     });
@@ -48,17 +50,17 @@ export default function errorHandler(
   }
 
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
-    res.status(409).json({
+    res.status(HTTP_STATUS.CONFLICT).json({
       error: {
-        message: "Cannot delete this record because other records reference it."
+        message: ERROR_MESSAGES.RELATED_RECORDS_EXIST
       }
     });
     return;
   }
 
-  res.status(500).json({
+  res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
     error: {
-      message: "Internal server error"
+      message: ERROR_MESSAGES.INTERNAL_ERROR
     }
   });
 }

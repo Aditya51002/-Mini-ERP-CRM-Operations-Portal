@@ -3,6 +3,9 @@ import type { NextFunction, Request, RequestHandler, Response } from "express";
 import jwt, { type JwtPayload } from "jsonwebtoken";
 
 import AppError from "../utils/AppError";
+import { ERROR_MESSAGES } from "../constants/messages";
+import { HTTP_STATUS } from "../constants/httpStatus";
+import { Role as Roles } from "../constants/enums";
 
 interface AuthTokenPayload extends JwtPayload {
   id: number;
@@ -10,11 +13,11 @@ interface AuthTokenPayload extends JwtPayload {
   email: string;
 }
 
-const validRoles: Role[] = ["ADMIN", "SALES", "WAREHOUSE", "ACCOUNTS"];
+const validRoles: Role[] = Object.values(Roles);
 
 function getJwtSecret(): string {
   if (!process.env.JWT_SECRET) {
-    throw new AppError("JWT_SECRET is not configured", 500);
+    throw new AppError(ERROR_MESSAGES.JWT_SECRET_MISSING, HTTP_STATUS.INTERNAL_SERVER_ERROR);
   }
 
   return process.env.JWT_SECRET;
@@ -36,13 +39,13 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     const [scheme, token] = authHeader.split(" ");
 
     if (scheme !== "Bearer" || !token) {
-      throw new AppError("Authentication required", 401);
+      throw new AppError(ERROR_MESSAGES.AUTH_REQUIRED, HTTP_STATUS.UNAUTHORIZED);
     }
 
     const payload = jwt.verify(token, getJwtSecret());
 
     if (!isAuthTokenPayload(payload)) {
-      throw new AppError("Invalid or expired token", 401);
+      throw new AppError(ERROR_MESSAGES.AUTH_INVALID, HTTP_STATUS.UNAUTHORIZED);
     }
 
     req.user = {
@@ -58,18 +61,18 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
       return;
     }
 
-    next(new AppError("Invalid or expired token", 401));
+    next(new AppError(ERROR_MESSAGES.AUTH_INVALID, HTTP_STATUS.UNAUTHORIZED));
   }
 }
 
 export function requireRole(...roles: Role[]): RequestHandler {
   return (req, res, next) => {
     if (!req.user) {
-      return next(new AppError("Authentication required", 401));
+      return next(new AppError(ERROR_MESSAGES.AUTH_REQUIRED, HTTP_STATUS.UNAUTHORIZED));
     }
 
     if (!roles.includes(req.user.role)) {
-      return next(new AppError("Forbidden", 403));
+      return next(new AppError(ERROR_MESSAGES.AUTH_FORBIDDEN, HTTP_STATUS.FORBIDDEN));
     }
 
     next();

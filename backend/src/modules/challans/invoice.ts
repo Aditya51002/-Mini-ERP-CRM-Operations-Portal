@@ -53,11 +53,7 @@ export function generateInvoicePdf(challan: ChallanInvoiceData, res: Response): 
   const metaY = doc.y;
 
   // Invoice Details (Left Column)
-  doc
-    .fillColor("#0f172a")
-    .fontSize(11)
-    .font("Helvetica-Bold")
-    .text("Invoice Details", 40, metaY);
+  doc.fillColor("#0f172a").fontSize(11).font("Helvetica-Bold").text("Invoice Details", 40, metaY);
 
   doc
     .fontSize(9)
@@ -91,9 +87,7 @@ export function generateInvoicePdf(challan: ChallanInvoiceData, res: Response): 
   const startTableY = Math.max(doc.y, metaY + 85) + 15;
 
   // Table Header
-  doc
-    .rect(40, startTableY, 515, 22)
-    .fill("#f1f5f9");
+  doc.rect(40, startTableY, 515, 22).fill("#f1f5f9");
 
   doc
     .fillColor("#0f172a")
@@ -132,13 +126,16 @@ export function generateInvoicePdf(challan: ChallanInvoiceData, res: Response): 
   });
 
   // Table Divider Line
-  doc.strokeColor("#cbd5e1").lineWidth(1).moveTo(40, currentY + 5).lineTo(555, currentY + 5).stroke();
+  doc
+    .strokeColor("#cbd5e1")
+    .lineWidth(1)
+    .moveTo(40, currentY + 5)
+    .lineTo(555, currentY + 5)
+    .stroke();
 
   // Grand Total Box
   const totalY = currentY + 15;
-  doc
-    .rect(350, totalY, 205, 30)
-    .fill("#e2e8f0");
+  doc.rect(350, totalY, 205, 30).fill("#e2e8f0");
 
   doc
     .fillColor("#0f172a")
@@ -152,7 +149,10 @@ export function generateInvoicePdf(challan: ChallanInvoiceData, res: Response): 
     .fillColor("#94a3b8")
     .fontSize(8)
     .font("Helvetica")
-    .text("Thank you for your business! Mini ERP + CRM System Generated Invoice.", 40, 780, { align: "center", width: 515 });
+    .text("Thank you for your business! Mini ERP + CRM System Generated Invoice.", 40, 780, {
+      align: "center",
+      width: 515
+    });
 
   doc.end();
 }
