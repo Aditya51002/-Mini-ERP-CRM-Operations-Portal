@@ -173,9 +173,9 @@ jobs:
         run: |
           set -e
           mkdir -p ~/.ssh
-          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/ec2_key
+          printf '%s\n' "$EC2_SSH_KEY" | tr -d '\r' > ~/.ssh/ec2_key
           chmod 600 ~/.ssh/ec2_key
-          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+          touch ~/.ssh/known_hosts
 
       - name: Pull images and restart compose stack
         if: steps.ec2-secrets.outputs.can_deploy == 'true'
@@ -190,15 +190,21 @@ jobs:
           set -e
           EC2_USER_VALUE="${EC2_USER:-ubuntu}"
           SSH_TARGET="${EC2_USER_VALUE}@${EC2_HOST}"
+          SSH_OPTIONS=(
+            -i ~/.ssh/ec2_key
+            -o ConnectTimeout=15
+            -o StrictHostKeyChecking=accept-new
+            -o UserKnownHostsFile=~/.ssh/known_hosts
+          )
 
           printf '%s' "$DOCKERHUB_TOKEN" |
-            ssh -i ~/.ssh/ec2_key "$SSH_TARGET" \
+            ssh "${SSH_OPTIONS[@]}" "$SSH_TARGET" \
               "docker login -u '$DOCKERHUB_USERNAME' --password-stdin"
 
-          scp -i ~/.ssh/ec2_key docker-compose.production.yml \
+          scp "${SSH_OPTIONS[@]}" docker-compose.production.yml \
             "$SSH_TARGET:${DEPLOY_DIR}/docker-compose.production.yml"
 
-          ssh -i ~/.ssh/ec2_key "$SSH_TARGET" \
+          ssh "${SSH_OPTIONS[@]}" "$SSH_TARGET" \
             "set -e; \
              cd '${DEPLOY_DIR}'; \
              export IMAGE_TAG='${IMAGE_TAG}'; \
