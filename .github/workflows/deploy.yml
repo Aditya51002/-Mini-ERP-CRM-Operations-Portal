@@ -226,6 +226,7 @@ jobs:
              cd '${DEPLOY_DIR}'; \
              export IMAGE_TAG='${IMAGE_TAG}'; \
              export DOCKERHUB_USERNAME='${DOCKERHUB_USERNAME}'; \
+             docker system prune -af; \
              docker compose -f docker-compose.production.yml pull; \
              docker compose -f docker-compose.production.yml up -d; \
              docker image prune -f"
