@@ -165,17 +165,35 @@ jobs:
           fi
 
       - name: Configure SSH
+        id: ssh-config
         if: steps.ec2-secrets.outputs.can_deploy == 'true'
         shell: bash
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
           set -e
+          EC2_USER_VALUE="${EC2_USER:-ubuntu}"
+          EC2_HOST_VALUE="${EC2_HOST}"
+
+          if [[ "$EC2_HOST_VALUE" == *"@"* ]]; then
+            EC2_USER_VALUE="${EC2_HOST_VALUE%@*}"
+            EC2_HOST_VALUE="${EC2_HOST_VALUE##*@}"
+          fi
+
+          if [ -z "$EC2_HOST_VALUE" ]; then
+            echo "::error::EC2 host is empty after parsing EC2_HOST."
+            exit 1
+          fi
+
           mkdir -p ~/.ssh
           printf '%s\n' "$EC2_SSH_KEY" | tr -d '\r' > ~/.ssh/ec2_key
           chmod 600 ~/.ssh/ec2_key
           touch ~/.ssh/known_hosts
+
+          echo "ssh_user=$EC2_USER_VALUE" >> "$GITHUB_OUTPUT"
+          echo "ssh_host=$EC2_HOST_VALUE" >> "$GITHUB_OUTPUT"
 
       - name: Pull images and restart compose stack
         if: steps.ec2-secrets.outputs.can_deploy == 'true'
@@ -188,8 +206,7 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           set -e
-          EC2_USER_VALUE="${EC2_USER:-ubuntu}"
-          SSH_TARGET="${EC2_USER_VALUE}@${EC2_HOST}"
+          SSH_TARGET="${{ steps.ssh-config.outputs.ssh_user }}@${{ steps.ssh-config.outputs.ssh_host }}"
           SSH_OPTIONS=(
             -i ~/.ssh/ec2_key
             -o ConnectTimeout=15
